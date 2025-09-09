@@ -1,0 +1,41 @@
+<div class="container">
+    <h1>User Management</h1>
+
+    <?php if (!empty($_GET['message'])): ?>
+        <div class="alert alert-success">
+            <?= htmlspecialchars($_GET['message']) ?>
+        </div>
+    <?php endif; ?>
+
+    <table class="table table-striped">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        <?php foreach ($users as $user): ?>
+            <tr>
+                <td><?= $user['id'] ?></td>
+                <td><?= htmlspecialchars($user['name']) ?></td>
+                <td><?= htmlspecialchars($user['email']) ?></td>
+                <td>
+                    <span class="badge bg-<?=
+                    $user['role'] === 'admin' ? 'danger' :
+                        ($user['role'] === 'moderator' ? 'warning' : 'secondary')
+                    ?>">
+                        <?= ucfirst($user['role']) ?>
+                    </span>
+                </td>
+                <td>
+                    <a href="/admin/users/edit/<?= $user['id'] ?>" class="btn btn-sm btn-primary">Edit</a>
+                </td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
