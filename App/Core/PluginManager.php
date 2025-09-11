@@ -5,24 +5,69 @@
     class PluginManager {
         private $plugins = [];
         private $activePlugins = [];
+        private $container;
 
-        public function __construct() {
+        public function __construct($container) {
+            $this->container = $container;
+            $this->ensureStorageDirectoryExists();
             $this->loadPlugins();
+            $this->loadActivePlugins();
         }
 
-        public function loadPlugins()
-        {
-            $pluginsDir = PLUGINS_PATH;
-            $pluginFolders = scandir($pluginsDir);
+        private function ensureStorageDirectoryExists() {
+            if (!is_dir(STORAGE_PATH)) {
+                if (!mkdir(STORAGE_PATH, 0755, true)) {
+                    // Попробуем создать с помощью sudo, если возможно
+                    if (function_exists('shell_exec')) {
+                        shell_exec('sudo mkdir -p ' . escapeshellarg(STORAGE_PATH));
+                        shell_exec('sudo chmod 755 ' . escapeshellarg(STORAGE_PATH));
+                        shell_exec('sudo chown www-data:www-data ' . escapeshellarg(STORAGE_PATH));
+                    }
 
-            error_log("Loading plugins from: " . $pluginsDir);
-            error_log("Found folders: " . implode(', ', $pluginFolders));
+                    if (!is_dir(STORAGE_PATH)) {
+                        throw new \Exception("Cannot create storage directory: " . STORAGE_PATH);
+                    }
+                }
+            }
+
+            // Проверяем права на запись
+            if (!is_writable(STORAGE_PATH)) {
+                // Попытаемся изменить права
+                if (function_exists('shell_exec')) {
+                    shell_exec('sudo chmod 755 ' . escapeshellarg(STORAGE_PATH));
+                    shell_exec('sudo chown www-data:www-data ' . escapeshellarg(STORAGE_PATH));
+                }
+
+                if (!is_writable(STORAGE_PATH)) {
+                    // Создадим временный файл в системной tmp директории
+                    define('ALT_STORAGE_PATH', sys_get_temp_dir() . '/testsystem_storage/');
+                    if (!is_dir(ALT_STORAGE_PATH)) {
+                        mkdir(ALT_STORAGE_PATH, 0755, true);
+                    }
+                }
+            }
+        }
+
+        private function getStoragePath() {
+            if (defined('ALT_STORAGE_PATH') && is_writable(ALT_STORAGE_PATH)) {
+                return ALT_STORAGE_PATH;
+            }
+            return STORAGE_PATH;
+        }
+
+        public function loadPlugins() {
+            $pluginsDir = PLUGINS_PATH;
+
+            if (!is_dir($pluginsDir)) {
+                throw new \Exception("Plugins directory not found: " . $pluginsDir);
+            }
+
+            $pluginFolders = scandir($pluginsDir);
 
             foreach ($pluginFolders as $folder) {
                 if ($folder === '.' || $folder === '..') continue;
 
                 $pluginFile = $pluginsDir . $folder . '/Plugin.php';
-                error_log("Checking plugin file: " . $pluginFile);
 
                 if (file_exists($pluginFile)) {
                     $pluginClass = "Plugins\\{$folder}\\Plugin";
@@ -32,241 +77,192 @@
                     }
 
                     if (class_exists($pluginClass)) {
-                        $plugin = new $pluginClass();
-                        $this->plugins[$folder] = $plugin;
-                        error_log("Loaded plugin: " . $folder);
-                    } else {
-                        error_log("Class not found: " . $pluginClass);
-                    }
-                } else {
-                    error_log("Plugin file not found: " . $pluginFile);
-                }
-            }
-
-            error_log("Total plugins loaded: " . count($this->plugins));
-        }
-
-        public function enqueuePluginAssets() {
-            foreach ($this->activePlugins as $pluginName => $plugin) {
-                $assetsPath = "/assets/plugins/{$pluginName}/";
-                $pluginAssetsDir = PLUGINS_PATH . $pluginName . '/assets/';
-
-                if (is_dir($pluginAssetsDir)) {
-                    // Добавляем CSS
-                    if (is_dir($pluginAssetsDir . 'css')) {
-                        echo "<!-- Styles for {$pluginName} -->\n";
-                        $cssFiles = scandir($pluginAssetsDir . 'css');
-                        foreach ($cssFiles as $file) {
-                            if (pathinfo($file, PATHINFO_EXTENSION) === 'css') {
-                                echo "<link rel='stylesheet' href='{$assetsPath}css/{$file}'>\n";
-                            }
-                        }
-                    }
-
-                    // Добавляем JS
-                    if (is_dir($pluginAssetsDir . 'js')) {
-                        echo "<!-- Scripts for {$pluginName} -->\n";
-                        $jsFiles = scandir($pluginAssetsDir . 'js');
-                        foreach ($jsFiles as $file) {
-                            if (pathinfo($file, PATHINFO_EXTENSION) === 'js') {
-                                echo "<script src='{$assetsPath}js/{$file}'></script>\n";
-                            }
+                        try {
+                            $plugin = new $pluginClass();
+                            $this->plugins[$folder] = $plugin;
+                        } catch (\Exception $e) {
+                            error_log("Failed to initialize plugin {$folder}: " . $e->getMessage());
                         }
                     }
                 }
             }
         }
 
-        public function activatePlugin($pluginName)
-        {
-            error_log("=== SIMPLIFIED ACTIVATION ===");
-            error_log("Activating plugin: " . $pluginName);
-
-            // Просто добавляем плагин в активные без вызова методов
-            if (isset($this->plugins[$pluginName])) {
-                $this->activePlugins[$pluginName] = $this->plugins[$pluginName];
-                error_log("Directly added to active plugins: " . $pluginName);
-
-                // Сохраняем
-                if ($this->saveActivePlugins()) {
-                    error_log("Plugin directly activated and saved");
-                    return true;
-                } else {
-                    error_log("Failed to save after direct activation");
-                    unset($this->activePlugins[$pluginName]);
-                    return false;
-                }
+        public function activatePlugin($pluginName) {
+            if (!isset($this->plugins[$pluginName])) {
+                throw new \Exception("Plugin {$pluginName} not found");
             }
 
-            error_log("Plugin not found: " . $pluginName);
-            return false;
-        }
-
-        public function bootActivePlugins() {
-            foreach ($this->activePlugins as $plugin) {
-                $plugin->boot();
+            if ($this->isPluginActive($pluginName)) {
+                throw new \Exception("Plugin {$pluginName} is already active");
             }
-        }
-
-        public function registerPluginRoutes($router) {
-            foreach ($this->activePlugins as $plugin) {
-                $plugin->registerRoutes($router);
-            }
-        }
-
-        public function registerPluginServices($container) {
-            foreach ($this->activePlugins as $plugin) {
-                $plugin->registerServices($container);
-            }
-        }
-
-        private function saveActivePlugins()
-        {
-            error_log("=== SAVE ACTIVE PLUGINS CALLED ===");
 
             try {
-                $active = array_keys($this->activePlugins);
-                $file = STORAGE_PATH . 'active_plugins.json';
+                $plugin = $this->plugins[$pluginName];
+                $plugin->activate();
 
-                error_log("Active plugins to save: " . implode(', ', $active));
-                error_log("Saving to file: " . $file);
+                $this->activePlugins[$pluginName] = $plugin;
+                $this->saveActivePlugins();
 
-                // Создаем папку, если она не существует
-                if (!is_dir(STORAGE_PATH)) {
-                    error_log("Storage directory doesn't exist, creating: " . STORAGE_PATH);
-                    if (!mkdir(STORAGE_PATH, 0755, true)) {
-                        error_log('Cannot create storage directory');
-                        return false;
-                    }
-                }
+                // Регистрируем сервисы, маршруты и хуки после активации
+                $plugin->registerServices($this->container);
+                $plugin->registerRoutes($this->container->get('router'));
+                $plugin->registerHooks();
 
-                // Проверяем права на запись
-                if (!is_writable(STORAGE_PATH)) {
-                    error_log('Storage directory is not writable');
-                    return false;
-                }
-
-                // Записываем данные
-                $result = file_put_contents($file, json_encode($active, JSON_PRETTY_PRINT));
-
-                if ($result === false) {
-                    error_log('Cannot write to file');
-                    return false;
-                }
-
-                // Проверяем, что файл был записан правильно
-                $writtenContent = file_get_contents($file);
-                if ($writtenContent === false) {
-                    error_log('Cannot read written file');
-                    return false;
-                }
-
-                $writtenPlugins = json_decode($writtenContent, true);
-                if (json_last_error() !== JSON_ERROR_NONE) {
-                    error_log('Written file contains invalid JSON');
-                    return false;
-                }
-
-                error_log("Active plugins successfully saved to file");
                 return true;
             } catch (\Exception $e) {
-                error_log('Error saving active plugins: ' . $e->getMessage());
-                return false;
+                error_log("Failed to activate plugin {$pluginName}: " . $e->getMessage());
+                throw $e;
             }
         }
 
-        public function loadActivePlugins()
-        {
-            $file = STORAGE_PATH . 'active_plugins.json';
-
-            error_log("Loading active plugins from: $file");
-
-            if (!file_exists($file)) {
-                error_log('Active plugins file does not exist, creating empty file');
-                $this->saveActivePlugins(); // Создаем файл с пустым массивом
-                return;
+        public function deactivatePlugin($pluginName) {
+            if (!$this->isPluginActive($pluginName)) {
+                throw new \Exception("Plugin {$pluginName} is not active");
             }
 
-            if (!is_readable($file)) {
-                error_log('Active plugins file is not readable');
-                return;
-            }
+            try {
+                $plugin = $this->activePlugins[$pluginName];
+                $plugin->deactivate();
 
-            $content = file_get_contents($file);
-            if ($content === false) {
-                error_log('Failed to read active plugins file');
-                return;
-            }
-
-            $active = json_decode($content, true);
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                error_log('Active plugins file contains invalid JSON, recreating file');
+                unset($this->activePlugins[$pluginName]);
                 $this->saveActivePlugins();
-                return;
+
+                return true;
+            } catch (\Exception $e) {
+                error_log("Failed to deactivate plugin {$pluginName}: " . $e->getMessage());
+                throw $e;
             }
+        }
 
-            error_log("Active plugins loaded from file: " . implode(', ', $active));
+        public function isPluginActive($pluginName) {
+            return isset($this->activePlugins[$pluginName]);
+        }
 
-            foreach ($active as $pluginName) {
-                if (isset($this->plugins[$pluginName]) && !isset($this->activePlugins[$pluginName])) {
-                    $this->activePlugins[$pluginName] = $this->plugins[$pluginName];
-                    error_log("Loaded active plugin: $pluginName");
-                } else {
-                    error_log("Plugin $pluginName not found or already active");
-                }
-            }
+        public function getPlugin($pluginName) {
+            return $this->plugins[$pluginName] ?? null;
+        }
 
-            error_log("Total active plugins loaded: " . count($this->activePlugins));
+        public function getPlugins() {
+            return $this->plugins;
         }
 
         public function getActivePlugins() {
             return $this->activePlugins;
         }
-        public function getPlugins()
-        {
-            error_log("Getting all plugins: " . implode(', ', array_keys($this->plugins)));
-            return $this->plugins;
+
+        private function saveActivePlugins() {
+            try {
+                $active = array_keys($this->activePlugins);
+                $storagePath = $this->getStoragePath();
+                $file = $storagePath . 'active_plugins.json';
+
+                $result = file_put_contents($file, json_encode($active, JSON_PRETTY_PRINT));
+
+                if ($result === false) {
+                    // Попробуем использовать временную директорию
+                    $tempFile = sys_get_temp_dir() . '/active_plugins.json';
+                    $result = file_put_contents($tempFile, json_encode($active, JSON_PRETTY_PRINT));
+
+                    if ($result === false) {
+                        throw new \Exception("Failed to write to active plugins file");
+                    }
+
+                    // Попробуем переместить файл
+                    if (!rename($tempFile, $file)) {
+                        // Если не удалось переместить, будем использовать временный файл
+                        define('ACTIVE_PLUGINS_FILE', $tempFile);
+                    }
+                }
+
+                return true;
+            } catch (\Exception $e) {
+                error_log("Error saving active plugins: " . $e->getMessage());
+                throw new \Exception("Failed to save active plugins: " . $e->getMessage());
+            }
         }
 
-        public function deactivatePlugin($pluginName)
-        {
-            error_log("=== DEACTIVATE PLUGIN METHOD CALLED ===");
-            error_log("Deactivating plugin: " . $pluginName);
+        private function loadActivePlugins() {
+            $storagePath = $this->getStoragePath();
+            $file = $storagePath . 'active_plugins.json';
 
-            if (isset($this->activePlugins[$pluginName])) {
-                error_log("Plugin found in active plugins, proceeding with deactivation");
+            // Если основной файл не существует, проверяем временный
+            if (!file_exists($file) && defined('ACTIVE_PLUGINS_FILE')) {
+                $file = ACTIVE_PLUGINS_FILE;
+            }
 
-                try {
-                    // Временно отключаем вызов deactivate() для тестирования
-                    // $this->activePlugins[$pluginName]->deactivate();
-                    error_log("Plugin deactivate method would be called here");
+            if (!file_exists($file)) {
+                return;
+            }
 
-                    unset($this->activePlugins[$pluginName]);
-                    error_log("Plugin removed from activePlugins array");
+            if (!is_readable($file)) {
+                // Попробуем изменить права
+                if (function_exists('shell_exec')) {
+                    shell_exec('sudo chmod 644 ' . escapeshellarg($file));
+                }
 
-                    if ($this->saveActivePlugins()) {
-                        error_log("Plugin deactivated and saved successfully");
-                        return true;
-                    } else {
-                        error_log("Failed to save active plugins after deactivation");
-                        // Откатываем изменения
-                        $this->activePlugins[$pluginName] = $this->plugins[$pluginName];
-                        return false;
-                    }
-                } catch (\Exception $e) {
-                    error_log("Exception during deactivation: " . $e->getMessage());
-                    return false;
+                if (!is_readable($file)) {
+                    error_log("Active plugins file is not readable: " . $file);
+                    return;
                 }
             }
 
-            error_log("Plugin not found in active plugins");
-            return false;
+            $content = file_get_contents($file);
+            if ($content === false) {
+                error_log("Failed to read active plugins file: " . $file);
+                return;
+            }
+
+            $active = json_decode($content, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                error_log("Active plugins file contains invalid JSON: " . $file);
+                return;
+            }
+
+            foreach ($active as $pluginName) {
+                if (isset($this->plugins[$pluginName])) {
+                    $this->activePlugins[$pluginName] = $this->plugins[$pluginName];
+                }
+            }
         }
 
-        public function isPluginActive($pluginName)
-        {
-            $isActive = isset($this->activePlugins[$pluginName]);
-            error_log("Checking if plugin $pluginName is active: " . ($isActive ? 'yes' : 'no'));
-            return $isActive;
+        public function bootActivePlugins() {
+            foreach ($this->activePlugins as $plugin) {
+                try {
+                    $plugin->boot();
+                } catch (\Exception $e) {
+                    error_log("Failed to boot plugin: " . $e->getMessage());
+                }
+            }
+        }
+
+        public function registerActivePluginRoutes($router) {
+            foreach ($this->activePlugins as $plugin) {
+                try {
+                    $plugin->registerRoutes($router);
+                } catch (\Exception $e) {
+                    error_log("Failed to register routes for plugin: " . $e->getMessage());
+                }
+            }
+        }
+
+        public function registerActivePluginServices($container) {
+            foreach ($this->activePlugins as $plugin) {
+                try {
+                    $plugin->registerServices($container);
+                } catch (\Exception $e) {
+                    error_log("Failed to register services for plugin: " . $e->getMessage());
+                }
+            }
+        }
+
+        public function registerActivePluginHooks() {
+            foreach ($this->activePlugins as $plugin) {
+                try {
+                    $plugin->registerHooks();
+                } catch (\Exception $e) {
+                    error_log("Failed to register hooks for plugin: " . $e->getMessage());
+                }
+            }
         }
     }

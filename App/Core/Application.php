@@ -36,7 +36,8 @@
         public static function getContainer()
         {
             if (!self::$instance) {
-                throw new \Exception('Application instance not initialized');
+                // Создаем минимальный экземпляр для консольных команд
+                self::$instance = new self();
             }
             return self::$instance->container;
         }
@@ -76,22 +77,30 @@
 
         private function initializePluginManager()
         {
-            $this->pluginManager = new PluginManager();
+            $this->pluginManager = new PluginManager($this->container);
             $this->container->set('plugin_manager', $this->pluginManager);
 
-            // Добавьте проверку
+            // Добавляем проверку
             if (!$this->container->has('plugin_manager')) {
                 throw new \Exception('Failed to register PluginManager in container');
             }
         }
 
-        public function boot()
-        {
-            $this->pluginManager->loadActivePlugins();
-            $this->pluginManager->registerPluginRoutes($this->router); // Должно быть ДО registerRoutes()
-            $this->pluginManager->registerPluginServices($this->container);
+        public function boot() {
+            // Загружаем активные плагины
             $this->pluginManager->bootActivePlugins();
-            $this->registerRoutes(); // Основные маршруты загружаются после плагинов
+
+            // Регистрируем сервисы плагинов
+            $this->pluginManager->registerActivePluginServices($this->container);
+
+            // Регистрируем маршруты плагинов
+            $this->pluginManager->registerActivePluginRoutes($this->router);
+
+            // Регистрируем хуки плагинов
+            $this->pluginManager->registerActivePluginHooks();
+
+            // Регистрируем основные маршруты приложения
+            $this->registerRoutes();
         }
 
         public function registerRoutes()

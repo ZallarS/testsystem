@@ -62,21 +62,18 @@
         $router->get('/users/edit/{id}', ['App\Controllers\Admin\UsersController', 'edit']);
         $router->post('/users/update/{id}', ['App\Controllers\Admin\UsersController', 'update']);
 
-
-        $router->get('/plugins', ['App\Controllers\Admin\PluginsController', 'index']);
-        $router->get('/plugins/activate/{pluginName}', function($pluginName) {
-            $controller = new App\Controllers\Admin\PluginsController();
-            return $controller->activate($pluginName);
-        });
-
-        $router->get('/plugins/deactivate/{pluginName}', function($pluginName) {
-            $controller = new App\Controllers\Admin\PluginsController();
-            return $controller->deactivate($pluginName);
-        });
-
     }, ['middleware' => [AuthMiddleware::class, new RoleMiddleware('admin')]]);
 
-    // Группа для маршрутов модераторов
+    // Маршруты управления плагинами
+    $router->group('/admin/plugins', function() use ($router) {
+        $router->get('', ['App\Controllers\Admin\PluginsController', 'index']);
+        $router->get('/activate/{pluginName}', ['App\Controllers\Admin\PluginsController', 'activate']);
+        $router->get('/deactivate/{pluginName}', ['App\Controllers\Admin\PluginsController', 'deactivate']);
+        $router->get('/details/{pluginName}', ['App\Controllers\Admin\PluginsController', 'details']);
+    }, ['middleware' => [AuthMiddleware::class, new RoleMiddleware('admin')]]);
+
+
+// Группа для маршрутов модераторов
     $router->group('/moderator', function() use ($router) {
         $router->get('', function() {
             return 'Панель модератора';

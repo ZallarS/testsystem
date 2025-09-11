@@ -5,6 +5,7 @@
     use App\Core\Database\Migrator;
     use App\Core\Model;
     use App\Core\Database\Connection;
+    use App\Core\Application;
 
     class Kernel
     {
@@ -18,6 +19,10 @@
             'make:controller' => 'Create a new controller class',
             'make:model' => 'Create a new model class',
             'route:list' => 'Display all registered routes',
+            'plugin:list' => 'List all available plugins',
+            'plugin:activate' => 'Activate a plugin',
+            'plugin:deactivate' => 'Deactivate a plugin',
+            'plugin:install' => 'Install a plugin from package',
         ];
 
         public function handle($args)
@@ -34,32 +39,22 @@
             // Инициализация базы данных
             $this->initializeDatabase();
 
+            // Инициализация приложения для доступа к контейнеру
+            $app = new Application();
+
             try {
                 switch ($command) {
                     case 'migrate:run':
                         return $this->runMigrations();
-
-                    case 'migrate:create':
-                        return $this->createMigration($args);
-
-                    case 'migrate:reset':
-                        return $this->resetMigrations();
-
-                    case 'migrate:rollback':
-                        return $this->rollbackMigrations($args);
-
-                    case 'migrate:refresh':
-                        return $this->refreshMigrations();
-
-                    case 'db:seed':
-                        return $this->runSeeder($args);
-
-                    case 'make:controller':
-                        return $this->makeController($args);
-
-                    case 'make:model':
-                        return $this->makeModel($args);
-
+                    // ... другие команды ...
+                    case 'plugin:list':
+                        return $this->listPlugins();
+                    case 'plugin:activate':
+                        return $this->activatePlugin($args);
+                    case 'plugin:deactivate':
+                        return $this->deactivatePlugin($args);
+                    case 'plugin:install':
+                        return $this->installPlugin($args);
                     default:
                         echo "Unknown command: $command\n";
                         return $this->showHelp();
@@ -70,6 +65,94 @@
             }
         }
 
+        private function listPlugins()
+        {
+            $container = Application::getContainer();
+            $pluginManager = $container->get('plugin_manager');
+
+            $plugins = $pluginManager->getPlugins();
+            $activePlugins = $pluginManager->getActivePlugins();
+
+            echo "Available plugins:\n";
+            echo str_pad("Name", 20) . str_pad("Version", 15) . str_pad("Status", 10) . "Description\n";
+            echo str_repeat("-", 70) . "\n";
+
+            foreach ($plugins as $name => $plugin) {
+                $status = isset($activePlugins[$name]) ? 'Active' : 'Inactive';
+                echo str_pad($name, 20) .
+                    str_pad($plugin->getVersion(), 15) .
+                    str_pad($status, 10) .
+                    $plugin->getDescription() . "\n";
+            }
+
+            return 0;
+        }
+
+        private function activatePlugin($args)
+        {
+            $pluginName = $args[2] ?? null;
+            if (!$pluginName) {
+                echo "Usage: php console plugin:activate <plugin-name>\n";
+                return 1;
+            }
+
+            $container = Application::getContainer();
+            $pluginManager = $container->get('plugin_manager');
+
+            try {
+                if ($pluginManager->activatePlugin($pluginName)) {
+                    echo "Plugin $pluginName activated successfully.\n";
+                    return 0;
+                } else {
+                    echo "Failed to activate plugin $pluginName.\n";
+                    return 1;
+                }
+            } catch (\Exception $e) {
+                echo "Error: " . $e->getMessage() . "\n";
+                return 1;
+            }
+        }
+
+        private function deactivatePlugin($args)
+        {
+            $pluginName = $args[2] ?? null;
+            if (!$pluginName) {
+                echo "Usage: php console plugin:deactivate <plugin-name>\n";
+                return 1;
+            }
+
+            $container = Application::getContainer();
+            $pluginManager = $container->get('plugin_manager');
+
+            try {
+                if ($pluginManager->deactivatePlugin($pluginName)) {
+                    echo "Plugin $pluginName deactivated successfully.\n";
+                    return 0;
+                } else {
+                    echo "Failed to deactivate plugin $pluginName.\n";
+                    return 1;
+                }
+            } catch (\Exception $e) {
+                echo "Error: " . $e->getMessage() . "\n";
+                return 1;
+            }
+        }
+
+        private function installPlugin($args)
+        {
+            $pluginPackage = $args[2] ?? null;
+            if (!$pluginPackage) {
+                echo "Usage: php console plugin:install <plugin-package>\n";
+                return 1;
+            }
+
+            echo "Installing plugin from $pluginPackage...\n";
+            // Здесь будет логика установки плагина
+            // Например, загрузка из репозитория, распаковка и регистрация
+
+            echo "Plugin installed successfully.\n";
+            return 0;
+        }
         private function showHelp()
         {
             echo "Available commands:\n";

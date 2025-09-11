@@ -4,7 +4,6 @@
         $prefixes = [
             'App\\' => __DIR__ . '/App/',
             'Plugins\\' => PLUGINS_PATH,
-            'Routes\\' => __DIR__ . '/routes/',
         ];
 
         foreach ($prefixes as $prefix => $baseDir) {
@@ -33,3 +32,11 @@
     define('DATABASE_PATH', BASE_PATH . '/database/');
     define('MIGRATIONS_PATH', DATABASE_PATH . 'migrations/');
     define('SEEDS_PATH', DATABASE_PATH . 'seeds/');
+
+    // Создаем необходимые директории, если они не существуют
+    $directories = [STORAGE_PATH, PLUGINS_PATH];
+    foreach ($directories as $directory) {
+        if (!is_dir($directory)) {
+            mkdir($directory, 0755, true);
+        }
+    }
