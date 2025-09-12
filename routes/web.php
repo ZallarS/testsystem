@@ -16,11 +16,6 @@
             ]);
         });
 
-        // Тестовая страница
-        $router->get('/test', function() {
-            return 'Тестовая страница';
-        });
-
     });
 
     // Группа для маршрутов аутентификации
@@ -52,18 +47,6 @@
 
     });
 
-    // Группа для административных маршрутов (только для администраторов)
-    $router->group('/admin', function() use ($router) {
-        $router->get('', function() {
-            return 'Admin dashboard';
-        });
-
-        $router->get('/users', ['App\Controllers\Admin\UsersController', 'index']);
-        $router->get('/users/edit/{id}', ['App\Controllers\Admin\UsersController', 'edit']);
-        $router->post('/users/update/{id}', ['App\Controllers\Admin\UsersController', 'update']);
-
-    }, ['middleware' => [AuthMiddleware::class, new RoleMiddleware('admin')]]);
-
     // Маршруты управления плагинами
     $router->group('/admin/plugins', function() use ($router) {
         $router->get('', ['App\Controllers\Admin\PluginsController', 'index']);
@@ -71,33 +54,3 @@
         $router->get('/deactivate/{pluginName}', ['App\Controllers\Admin\PluginsController', 'deactivate']);
         $router->get('/details/{pluginName}', ['App\Controllers\Admin\PluginsController', 'details']);
     }, ['middleware' => [AuthMiddleware::class, new RoleMiddleware('admin')]]);
-
-
-// Группа для маршрутов модераторов
-    $router->group('/moderator', function() use ($router) {
-        $router->get('', function() {
-            return 'Панель модератора';
-        });
-
-        $router->get('/content', function() {
-            return 'Управление контентом';
-        });
-
-    }, ['middleware' => [new AuthMiddleware(), new RoleMiddleware('moderator')]]);
-
-    // Группа для защищенных маршрутов (требует авторизации)
-    $router->group('', function() use ($router) {
-        $router->get('/profile', function() {
-            return Response::view('profile/index', [
-                'title' => 'Мой профиль',
-                'user' => \App\Core\User::get()
-            ]);
-        });
-
-        $router->get('/settings', function() {
-            return Response::view('settings/index', [
-                'title' => 'Настройки'
-            ]);
-        });
-
-    }, ['middleware' => new AuthMiddleware()]);
