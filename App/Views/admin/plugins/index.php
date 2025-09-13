@@ -1016,9 +1016,6 @@
                 <i class="fas fa-box-open"></i>
                 <h3>Плагины не найдены</h3>
                 <p>В системе не обнаружено установленных плагинов.</p>
-                <button class="btn btn-primary" id="uploadPluginEmptyBtn" style="margin-top: 1rem;">
-                    <i class="fas fa-upload"></i> Загрузить первый плагин
-                </button>
             </div>
         <?php endif; ?>
     </div>
