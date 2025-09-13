@@ -2,26 +2,20 @@
 
     namespace App\Console\Commands;
 
+    use App\Console\Command;
     use App\Core\Database\Migrator;
-    use Symfony\Component\Console\Command\Command;
-    use Symfony\Component\Console\Input\InputInterface;
-    use Symfony\Component\Console\Output\OutputInterface;
 
     class MigrateRunCommand extends Command
     {
-        protected static $defaultName = 'migrate:run';
+        protected $name = 'migrate:run';
+        protected $description = 'Run the database migrations';
 
-        protected function configure()
-        {
-            $this->setDescription('Run the database migrations');
-        }
-
-        protected function execute(InputInterface $input, OutputInterface $output)
+        public function execute($input, $output)
         {
             $migrator = new Migrator();
             $migrator->run();
 
-            $output->writeln('Migrations completed successfully.');
-            return Command::SUCCESS;
+            $this->write("Migrations completed successfully.", $output);
+            return 0;
         }
     }

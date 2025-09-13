@@ -20,19 +20,19 @@
         <tbody>
         <?php foreach ($users as $user): ?>
             <tr>
-                <td><?= $user['id'] ?></td>
-                <td><?= htmlspecialchars($user['name']) ?></td>
-                <td><?= htmlspecialchars($user['email']) ?></td>
+                <td><?= e($user['id']) ?></td>
+                <td><?= e($user['name']) ?></td>
+                <td><?= e($user['email']) ?></td>
                 <td>
                     <span class="badge bg-<?=
-                    $user['role'] === 'admin' ? 'danger' :
-                        ($user['role'] === 'moderator' ? 'warning' : 'secondary')
+                    e($user['role']) === 'admin' ? 'danger' :
+                        (e($user['role']) === 'moderator' ? 'warning' : 'secondary')
                     ?>">
-                        <?= ucfirst($user['role']) ?>
+                        <?= ucfirst(e($user['role'])) ?>
                     </span>
                 </td>
                 <td>
-                    <a href="/admin/users/edit/<?= $user['id'] ?>" class="btn btn-sm btn-primary">Edit</a>
+                    <a href="/admin/users/edit/<?= e($user['id']) ?>" class="btn btn-sm btn-primary">Edit</a>
                 </td>
             </tr>
         <?php endforeach; ?>

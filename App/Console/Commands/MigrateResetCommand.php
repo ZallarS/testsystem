@@ -2,26 +2,20 @@
 
     namespace App\Console\Commands;
 
+    use App\Console\Command;
     use App\Core\Database\Migrator;
-    use Symfony\Component\Console\Command\Command;
-    use Symfony\Component\Console\Input\InputInterface;
-    use Symfony\Component\Console\Output\OutputInterface;
 
     class MigrateResetCommand extends Command
     {
-        protected static $defaultName = 'migrate:reset';
+        protected $name = 'migrate:reset';
+        protected $description = 'Rollback all migrations';
 
-        protected function configure()
-        {
-            $this->setDescription('Rollback all migrations');
-        }
-
-        protected function execute(InputInterface $input, OutputInterface $output)
+        public function execute($input, $output)
         {
             $migrator = new Migrator();
             $migrator->reset();
 
-            $output->writeln('Migrations reset successfully.');
-            return Command::SUCCESS;
+            $this->write("Migrations reset successfully.", $output);
+            return 0;
         }
     }

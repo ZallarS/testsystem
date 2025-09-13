@@ -5,10 +5,16 @@
     class User {
         private static $sessionStarted = false;
 
-        public static function initSession() {
-            if (!self::$sessionStarted && session_status() === PHP_SESSION_NONE) {
-                session_start();
-                self::$sessionStarted = true;
+        public static function initSession()
+        {
+            if (!self::$sessionStarted) {
+                try {
+                    \App\Core\Session::start();
+                    self::$sessionStarted = true;
+                } catch (\Exception $e) {
+                    error_log("Session initialization failed: " . $e->getMessage());
+                    self::$sessionStarted = true;
+                }
             }
         }
 
@@ -17,24 +23,40 @@
             return isset($_SESSION['user']);
         }
 
-        public static function login($userData) {
+        public static function login($userData)
+        {
             self::initSession();
-            $_SESSION['user'] = $userData;
+
+            // Убедимся, что сессия активна перед записью
+            if (\App\Core\Session::status() === PHP_SESSION_ACTIVE) {
+                \App\Core\Session::set('user', $userData);
+
+                // Добавим логирование для отладки
+                error_log("User data saved to session: " . print_r($userData, true));
+                error_log("Session data after login: " . print_r($_SESSION, true));
+            } else {
+                error_log("Cannot save user data: session is not active");
+            }
         }
 
-        public static function logout() {
-            self::initSession();
-            unset($_SESSION['user']);
-            session_destroy();
+
+        public static function logout()
+        {
+            \App\Core\Session::destroy();
+            self::$sessionStarted = false;
         }
 
-        public static function get($key = null) {
+        public static function get($key = null)
+        {
+            // Всегда инициализируем сессию перед чтением
             self::initSession();
+
             if ($key === null) {
-                return $_SESSION['user'] ?? null;
+                return \App\Core\Session::get('user');
             }
 
-            return $_SESSION['user'][$key] ?? null;
+            $user = \App\Core\Session::get('user');
+            return $user[$key] ?? null;
         }
 
         public static function getId() {

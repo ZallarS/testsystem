@@ -39,30 +39,44 @@
             // Инициализация базы данных
             $this->initializeDatabase();
 
-            // Инициализация приложения для доступа к контейнеру
-            $app = new Application();
+            // Загружаем команды
+            $commands = $this->discoverCommands();
 
-            try {
-                switch ($command) {
-                    case 'migrate:run':
-                        return $this->runMigrations();
-                    // ... другие команды ...
-                    case 'plugin:list':
-                        return $this->listPlugins();
-                    case 'plugin:activate':
-                        return $this->activatePlugin($args);
-                    case 'plugin:deactivate':
-                        return $this->deactivatePlugin($args);
-                    case 'plugin:install':
-                        return $this->installPlugin($args);
-                    default:
-                        echo "Unknown command: $command\n";
-                        return $this->showHelp();
-                }
-            } catch (\Exception $e) {
-                echo "Error: " . $e->getMessage() . "\n";
-                return 1;
+            if (isset($commands[$command])) {
+                $commandClass = $commands[$command];
+                $commandInstance = new $commandClass();
+                return $commandInstance->execute($args, $this->createOutput());
             }
+
+            echo "Unknown command: $command\n";
+            return $this->showHelp();
+        }
+
+        private function createOutput()
+        {
+            // Простая реализация вывода
+            return new class {
+                public function writeln($message)
+                {
+                    echo $message . PHP_EOL;
+                }
+            };
+        }
+
+        private function discoverCommands()
+        {
+            $commands = [];
+            $commandFiles = glob(APP_PATH . 'Console/Commands/*.php');
+
+            foreach ($commandFiles as $file) {
+                $className = 'App\\Console\\Commands\\' . basename($file, '.php');
+                if (class_exists($className) && is_subclass_of($className, 'App\\Console\\Command')) {
+                    $command = new $className();
+                    $commands[$command->getName()] = $className;
+                }
+            }
+
+            return $commands;
         }
 
         private function listPlugins()

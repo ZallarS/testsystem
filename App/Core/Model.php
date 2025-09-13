@@ -65,14 +65,24 @@
         public function where($conditions, $params = [])
         {
             $whereClause = [];
-            foreach ($conditions as $key => $value) {
-                $whereClause[] = "$key = :$key";
-            }
-            $whereClause = implode(' AND ', $whereClause);
+            $bindings = [];
 
-            $sql = "SELECT * FROM {$this->table} WHERE $whereClause";
+            foreach ($conditions as $key => $value) {
+                // Экранируем имя колонки
+                $safeKey = preg_replace('/[^a-zA-Z0-9_]/', '', $key);
+                if ($safeKey !== $key) {
+                    throw new \Exception("Invalid column name: $key");
+                }
+
+                $whereClause[] = "`$safeKey` = :$safeKey";
+                $bindings[":$safeKey"] = $value;
+            }
+
+            $whereClause = implode(' AND ', $whereClause);
+            $sql = "SELECT * FROM `{$this->table}` WHERE $whereClause";
+
             $stmt = $this->db->prepare($sql);
-            $stmt->execute($params);
+            $stmt->execute($bindings);
 
             return $stmt->fetchAll();
         }
