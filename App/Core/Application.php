@@ -36,7 +36,6 @@
         public static function getContainer()
         {
             if (!self::$instance) {
-                // Создаем минимальный экземпляр для консольных команд
                 self::$instance = new self();
             }
             return self::$instance->container;

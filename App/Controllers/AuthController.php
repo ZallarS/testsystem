@@ -114,6 +114,9 @@
 
         public function processRegister()
         {
+            $authService = new \App\Services\AuthService();
+            $result = $authService->register($_POST['name'], $_POST['email'], $_POST['password']);
+
             $name = $_POST['name'] ?? '';
             $email = $_POST['email'] ?? '';
             $password = $_POST['password'] ?? '';
@@ -186,6 +189,18 @@
         private function validateRegistration($name, $email, $password, $confirmPassword)
         {
             $errors = [];
+
+            if (strlen($password) < 8) {
+                $errors[] = 'Password must be at least 8 characters';
+            }
+
+            if (!preg_match('/[A-Z]/', $password)) {
+                $errors[] = 'Password must contain at least one uppercase letter';
+            }
+
+            if (!preg_match('/[0-9]/', $password)) {
+                $errors[] = 'Password must contain at least one number';
+            }
 
             if (!Validator::string($name, 2, 50)) {
                 $errors[] = 'Name must be between 2 and 50 characters';
