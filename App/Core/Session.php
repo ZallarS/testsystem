@@ -60,14 +60,28 @@ class Session
                 throw new \RuntimeException('Failed to start session');
             }
 
-            // Регенерация ID сессии для предотвращения fixation
             if (empty($_SESSION['created'])) {
                 session_regenerate_id(true);
                 $_SESSION['created'] = time();
-            } elseif (time() - $_SESSION['created'] > 1800) {
-                // Регенерируем каждые 30 минут
-                session_regenerate_id(true);
-                $_SESSION['created'] = time();
+                $_SESSION['user_agent'] = $_SERVER['HTTP_USER_AGENT'] ?? '';
+                $_SESSION['ip'] = $_SERVER['REMOTE_ADDR'] ?? '';
+            } else {
+                // Проверяем User-Agent и IP
+                $currentUserAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+                $currentIp = $_SERVER['REMOTE_ADDR'] ?? '';
+
+                if ($_SESSION['user_agent'] !== $currentUserAgent || $_SESSION['ip'] !== $currentIp) {
+                    session_unset();
+                    session_destroy();
+                    self::start(); // Перезапускаем сессию
+                    return;
+                }
+
+                // Регенерируем ID каждые 30 минут
+                if (time() - $_SESSION['created'] > 1800) {
+                    session_regenerate_id(true);
+                    $_SESSION['created'] = time();
+                }
             }
 
             error_log("Session started with ID: " . session_id());
