@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Управление плагинами | Система тестирований</title>
+    <title>Расширенная система плагинов | Система тестирований</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -15,6 +15,8 @@
             --warning-light: #fffbeb;
             --danger: #ef476f;
             --danger-light: #fef2f2;
+            --info: #0ea5e9;
+            --info-light: #f0f9ff;
             --gray-50: #f9fafb;
             --gray-100: #f3f4f6;
             --gray-200: #e5e7eb;
@@ -112,6 +114,26 @@
 
         .btn-success:hover {
             background: #059669;
+            transform: translateY(-1px);
+        }
+
+        .btn-warning {
+            background: var(--warning);
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #d97706;
+            transform: translateY(-1px);
+        }
+
+        .btn-info {
+            background: var(--info);
+            color: white;
+        }
+
+        .btn-info:hover {
+            background: #0284c7;
             transform: translateY(-1px);
         }
 
@@ -241,6 +263,10 @@
             transform: translateY(-2px);
         }
 
+        .plugin-card.expanded {
+            box-shadow: var(--shadow-md);
+        }
+
         .plugin-header {
             padding: 1.25rem 1.5rem 0;
             display: flex;
@@ -351,6 +377,74 @@
             font-weight: 500;
         }
 
+        .plugin-capabilities {
+            margin-bottom: 1rem;
+        }
+
+        .capabilities-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--gray-700);
+            margin-bottom: 0.5rem;
+        }
+
+        .capabilities-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .capability-tag {
+            padding: 0.25rem 0.5rem;
+            background: var(--primary-light);
+            color: var(--primary);
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .plugin-dependencies {
+            margin-bottom: 1rem;
+        }
+
+        .dependencies-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--gray-700);
+            margin-bottom: 0.5rem;
+        }
+
+        .dependencies-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .dependency-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .dependency-status {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-installed {
+            background: var(--success);
+        }
+
+        .status-missing {
+            background: var(--danger);
+        }
+
+        .status-inactive {
+            background: var(--warning);
+        }
+
         .plugin-actions {
             padding: 1rem 1.5rem;
             background: var(--gray-50);
@@ -373,6 +467,31 @@
         .btn-danger:hover {
             background: #fef2f2;
             transform: translateY(-1px);
+        }
+
+        .expand-btn {
+            background: none;
+            border: none;
+            color: var(--gray-500);
+            cursor: pointer;
+            padding: 0.25rem;
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .expand-btn:hover {
+            color: var(--gray-700);
+        }
+
+        .plugin-expanded-content {
+            padding: 0 1.5rem 1.25rem;
+            display: none;
+        }
+
+        .plugin-card.expanded .plugin-expanded-content {
+            display: block;
         }
 
         .empty-state {
@@ -409,7 +528,13 @@
             border: 1px solid #fecaca;
         }
 
-        /* Модальное окно */
+        .alert-info {
+            background: var(--info-light);
+            color: var(--info);
+            border: 1px solid #bae6fd;
+        }
+
+        /* Модальные окна */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -437,10 +562,13 @@
             border-radius: var(--radius-lg);
             box-shadow: var(--shadow-md);
             width: 100%;
-            max-width: 500px;
+            max-width: 600px;
+            max-height: 90vh;
             overflow: hidden;
             transform: translateY(20px);
             transition: transform 0.3s;
+            display: flex;
+            flex-direction: column;
         }
 
         .modal-overlay.active .modal {
@@ -471,6 +599,7 @@
 
         .modal-body {
             padding: 1.5rem;
+            overflow-y: auto;
         }
 
         .modal-form {
@@ -524,12 +653,59 @@
             resize: vertical;
         }
 
+        .form-select {
+            padding: 0.75rem;
+            border: 1px solid var(--gray-300);
+            border-radius: var(--radius);
+            font-size: 0.875rem;
+            background: white;
+        }
+
         .modal-footer {
             padding: 1rem 1.5rem;
             border-top: 1px solid var(--gray-200);
             display: flex;
             justify-content: flex-end;
             gap: 0.75rem;
+        }
+
+        .dependency-modal-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin: 1rem 0;
+        }
+
+        .dependency-modal-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            background: var(--gray-50);
+            border-radius: var(--radius);
+        }
+
+        .dependency-modal-status {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .dependency-modal-info {
+            flex: 1;
+        }
+
+        .dependency-modal-name {
+            font-weight: 500;
+        }
+
+        .dependency-modal-desc {
+            font-size: 0.875rem;
+            color: var(--gray-600);
+        }
+
+        .dependency-modal-action {
+            margin-left: auto;
         }
 
         @media (max-width: 768px) {
@@ -559,19 +735,26 @@
             .plugin-actions {
                 flex-wrap: wrap;
             }
+
+            .modal {
+                max-height: 80vh;
+            }
         }
     </style>
 </head>
 <body>
 <div class="container">
     <div class="header">
-        <h1 class="header-title">Управление плагинами</h1>
+        <h1 class="header-title">Расширенная система плагинов</h1>
         <div class="header-actions">
             <button class="btn btn-secondary" id="checkUpdatesBtn">
                 <i class="fas fa-sync-alt"></i> Проверить обновления
             </button>
             <button class="btn btn-primary" id="uploadPluginBtn">
                 <i class="fas fa-upload"></i> Загрузить плагин
+            </button>
+            <button class="btn btn-info" id="pluginMarketplaceBtn">
+                <i class="fas fa-store"></i> Магазин плагинов
             </button>
         </div>
     </div>
@@ -590,6 +773,11 @@
             <?= htmlspecialchars($_GET['error']) ?>
         </div>
     <?php endif; ?>
+
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i>
+        Система плагинов теперь поддерживает расширенные возможности: переопределение маршрутов, модификацию представлений и добавление консольных команд.
+    </div>
 
     <!-- Статистика -->
     <div class="stats-grid">
@@ -618,6 +806,7 @@
             <button class="filter-tab" data-filter="active">Активные</button>
             <button class="filter-tab" data-filter="inactive">Неактивные</button>
             <button class="filter-tab" data-filter="updates">С обновлениями</button>
+            <button class="filter-tab" data-filter="extensions">Расширения</button>
         </div>
 
         <div class="search-box">
@@ -648,9 +837,31 @@
         <?php foreach ($sortedPlugins as $pluginName => $pluginData):
             $plugin = $pluginData['plugin'];
             $isActive = $pluginData['active'];
-            $hasUpdate = in_array($pluginName, ['TestPlugin', 'AnalyticsPlugin']); // Пример для демонстрации
+            $hasUpdate = in_array($pluginName, ['TestPlugin', 'AnalyticsPlugin']);
+            $isExtension = in_array($pluginName, ['UIExtension', 'PopupManager']);
+
+            // Определяем возможности плагина
+            $capabilities = [];
+            if (method_exists($plugin, 'getRoutes') && !empty($plugin->getRoutes())) {
+                $capabilities[] = 'Маршруты';
+            }
+            if (method_exists($plugin, 'getViews') && !empty($plugin->getViews())) {
+                $capabilities[] = 'Представления';
+            }
+            if (method_exists($plugin, 'getConsoleCommands') && !empty($plugin->getConsoleCommands())) {
+                $capabilities[] = 'Консоль';
+            }
+            if (method_exists($plugin, 'getHooks') && !empty($plugin->getHooks())) {
+                $capabilities[] = 'Хуки';
+            }
+
+            // Определяем зависимости
+            $dependencies = [];
+            if (method_exists($plugin, 'getDependencies')) {
+                $dependencies = $plugin->getDependencies();
+            }
             ?>
-            <div class="plugin-card" data-status="<?= $isActive ? 'active' : 'inactive' ?>" data-update="<?= $hasUpdate ? 'true' : 'false' ?>">
+            <div class="plugin-card" data-status="<?= $isActive ? 'active' : 'inactive' ?>" data-update="<?= $hasUpdate ? 'true' : 'false' ?>" data-extension="<?= $isExtension ? 'true' : 'false' ?>">
                 <div class="plugin-header">
                     <div class="plugin-title-container">
                         <h3 class="plugin-title">
@@ -658,12 +869,18 @@
                             <?php if ($pluginName === 'TestPlugin'): ?>
                                 <i class="fas fa-star" style="color: var(--warning);" title="Рекомендуемый плагин"></i>
                             <?php endif; ?>
+                            <?php if ($isExtension): ?>
+                                <i class="fas fa-puzzle-piece" style="color: var(--info);" title="Расширение для других плагинов"></i>
+                            <?php endif; ?>
                         </h3>
                         <div class="plugin-version">v<?= htmlspecialchars($plugin->getVersion()) ?></div>
                     </div>
                     <span class="plugin-status status-<?= $isActive ? 'active' : 'inactive' ?>">
                             <?= $isActive ? 'Активен' : 'Неактивен' ?>
                         </span>
+                    <button class="expand-btn" title="Подробнее">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
                 </div>
 
                 <div class="plugin-body">
@@ -673,6 +890,36 @@
                         <div class="update-available">
                             <i class="fas fa-arrow-circle-up"></i>
                             Доступно обновление до версии 2.1.0
+                        </div>
+                    <?php endif; ?>
+
+                    <div class="plugin-capabilities">
+                        <div class="capabilities-title">Возможности:</div>
+                        <div class="capabilities-list">
+                            <?php foreach ($capabilities as $capability): ?>
+                                <span class="capability-tag"><?= $capability ?></span>
+                            <?php endforeach; ?>
+                            <?php if (empty($capabilities)): ?>
+                                <span class="capability-tag">Базовые</span>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <?php if (!empty($dependencies)): ?>
+                        <div class="plugin-dependencies">
+                            <div class="dependencies-title">Зависимости:</div>
+                            <div class="dependencies-list">
+                                <?php foreach ($dependencies as $dep => $version):
+                                    $depInstalled = isset($plugins[$dep]);
+                                    $depActive = isset($activePlugins[$dep]);
+                                    $statusClass = $depInstalled ? ($depActive ? 'status-installed' : 'status-inactive') : 'status-missing';
+                                    ?>
+                                    <div class="dependency-item">
+                                        <span class="dependency-status <?= $statusClass ?>"></span>
+                                        <span><?= $dep ?> (<?= $version ?>)</span>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
                         </div>
                     <?php endif; ?>
 
@@ -737,9 +984,28 @@
                         </button>
                     <?php endif; ?>
 
-                    <button class="btn btn-secondary btn-sm plugin-info-btn" data-plugin="<?= htmlspecialchars($pluginName) ?>">
+                    <button class="btn btn-info btn-sm plugin-info-btn" data-plugin="<?= htmlspecialchars($pluginName) ?>">
                         <i class="fas fa-info-circle"></i> Подробнее
                     </button>
+                </div>
+
+                <div class="plugin-expanded-content">
+                    <h4>Расширенная информация</h4>
+                    <p>Этот плагин расширяет функциональность системы следующими способами:</p>
+                    <ul>
+                        <li>Добавляет новые маршруты для API</li>
+                        <li>Переопределяет стандартные представления</li>
+                        <li>Добавляет консольные команды для управления</li>
+                        <li>Регистрирует хуки для расширения функциональности</li>
+                    </ul>
+
+                    <h4>Дополнительные требования</h4>
+                    <p>Для работы этого плагина требуется PHP 7.4+ и следующие расширения:</p>
+                    <ul>
+                        <li>JSON</li>
+                        <li>MBString</li>
+                        <li>CURL</li>
+                    </ul>
                 </div>
             </div>
         <?php endforeach; ?>
@@ -768,6 +1034,15 @@
         <div class="modal-body">
             <form class="modal-form" id="uploadPluginForm">
                 <div class="form-group">
+                    <label class="form-label">Источник плагина</label>
+                    <select class="form-select" id="pluginSource">
+                        <option value="file">Загрузить ZIP-файл</option>
+                        <option value="url">Указать URL</option>
+                        <option value="marketplace">Магазин плагинов</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="fileSourceGroup">
                     <label class="form-label">Файл плагина (ZIP)</label>
                     <div class="form-file" id="fileDropArea">
                         <i class="fas fa-cloud-upload-alt" style="font-size: 2rem; margin-bottom: 0.5rem; color: var(--gray-400);"></i>
@@ -775,15 +1050,50 @@
                         <input type="file" id="pluginFile" accept=".zip" style="display: none;">
                     </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Или URL плагина</label>
+
+                <div class="form-group" id="urlSourceGroup" style="display: none;">
+                    <label class="form-label">URL плагина</label>
                     <input type="url" class="form-input" placeholder="https://example.com/plugin.zip" id="pluginUrl">
                 </div>
+
+                <div class="form-group" id="marketplaceSourceGroup" style="display: none;">
+                    <label class="form-label">Выберите плагин из магазина</label>
+                    <select class="form-select" id="marketplacePlugin">
+                        <option value="">-- Выберите плагин --</option>
+                        <option value="seo-plugin">SEO Plugin</option>
+                        <option value="analytics">Analytics Pro</option>
+                        <option value="backup">Backup Manager</option>
+                    </select>
+                </div>
+
                 <div class="form-group">
                     <label class="form-label">Дополнительная информация (необязательно)</label>
                     <textarea class="form-input form-textarea" placeholder="Описание или заметки о плагине..." id="pluginNotes"></textarea>
                 </div>
             </form>
+
+            <div id="dependencyCheck" style="display: none;">
+                <h4>Проверка зависимостей</h4>
+                <div class="dependency-modal-list">
+                    <div class="dependency-modal-item">
+                        <span class="dependency-modal-status status-installed"></span>
+                        <div class="dependency-modal-info">
+                            <div class="dependency-modal-name">UI Extension (v1.2+)</div>
+                            <div class="dependency-modal-desc">Установлен</div>
+                        </div>
+                    </div>
+                    <div class="dependency-modal-item">
+                        <span class="dependency-modal-status status-missing"></span>
+                        <div class="dependency-modal-info">
+                            <div class="dependency-modal-name">Popup Manager (v2.0+)</div>
+                            <div class="dependency-modal-desc">Не установлен</div>
+                        </div>
+                        <div class="dependency-modal-action">
+                            <button class="btn btn-sm btn-primary">Установить</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
         <div class="modal-footer">
             <button class="btn btn-secondary" id="cancelUpload">Отмена</button>
@@ -792,10 +1102,75 @@
     </div>
 </div>
 
+<!-- Модальное окно информации о плагине -->
+<div class="modal-overlay" id="infoModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 class="modal-title">Информация о плагине</h2>
+            <button class="modal-close" id="closeInfoModal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <h3 id="infoPluginName">Test Plugin</h3>
+            <p id="infoPluginDescription">Описание плагина...</p>
+
+            <div class="plugin-details">
+                <div class="detail-item">
+                    <span class="detail-label">Версия:</span>
+                    <span class="detail-value" id="infoPluginVersion">1.0.0</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Автор:</span>
+                    <span class="detail-value" id="infoPluginAuthor">John Doe</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Совместимость:</span>
+                    <span class="detail-value">v1.2+</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Последнее обновление:</span>
+                    <span class="detail-value">2 недели назад</span>
+                </div>
+            </div>
+
+            <h4>Возможности</h4>
+            <div class="capabilities-list">
+                <span class="capability-tag">Маршруты</span>
+                <span class="capability-tag">Представления</span>
+                <span class="capability-tag">Консоль</span>
+            </div>
+
+            <h4>Зависимости</h4>
+            <div class="dependencies-list">
+                <div class="dependency-item">
+                    <span class="dependency-status status-installed"></span>
+                    <span>UI Extension (v1.2+)</span>
+                </div>
+                <div class="dependency-item">
+                    <span class="dependency-status status-missing"></span>
+                    <span>Popup Manager (v2.0+)</span>
+                </div>
+            </div>
+
+            <h4>Дополнительная информация</h4>
+            <p>Этот плагин расширяет функциональность системы, добавляя новые маршруты API, переопределяя стандартные представления и добавляя консольные команды для управления.</p>
+
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i>
+                Для полной функциональности необходимо установить все зависимости.
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" id="installDependenciesBtn">Установить зависимости</button>
+            <button class="btn btn-secondary" id="closeInfoBtn">Закрыть</button>
+        </div>
+    </div>
+</div>
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Элементы модального окна
+        // Элементы модальных окон
         const uploadModal = document.getElementById('uploadModal');
+        const infoModal = document.getElementById('infoModal');
         const uploadPluginBtn = document.getElementById('uploadPluginBtn');
         const uploadPluginEmptyBtn = document.getElementById('uploadPluginEmptyBtn');
         const closeUploadModal = document.getElementById('closeUploadModal');
@@ -803,20 +1178,44 @@
         const fileDropArea = document.getElementById('fileDropArea');
         const pluginFile = document.getElementById('pluginFile');
         const submitUpload = document.getElementById('submitUpload');
+        const closeInfoModal = document.getElementById('closeInfoModal');
+        const closeInfoBtn = document.getElementById('closeInfoBtn');
+        const pluginSource = document.getElementById('pluginSource');
+        const fileSourceGroup = document.getElementById('fileSourceGroup');
+        const urlSourceGroup = document.getElementById('urlSourceGroup');
+        const marketplaceSourceGroup = document.getElementById('marketplaceSourceGroup');
+        const dependencyCheck = document.getElementById('dependencyCheck');
 
-        // Открытие модального окна
+        // Открытие модального окна загрузки
         function openUploadModal() {
             uploadModal.classList.add('active');
             document.body.style.overflow = 'hidden';
         }
 
-        // Закрытие модального окна
+        // Закрытие модального окна загрузки
         function closeUploadModalFunc() {
             uploadModal.classList.remove('active');
             document.body.style.overflow = 'auto';
         }
 
-        // Обработчики событий для модального окна
+        // Открытие модального окна информации
+        function openInfoModal(pluginName, pluginDescription, pluginVersion, pluginAuthor) {
+            document.getElementById('infoPluginName').textContent = pluginName;
+            document.getElementById('infoPluginDescription').textContent = pluginDescription;
+            document.getElementById('infoPluginVersion').textContent = pluginVersion;
+            document.getElementById('infoPluginAuthor').textContent = pluginAuthor;
+
+            infoModal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        // Закрытие модального окна информации
+        function closeInfoModalFunc() {
+            infoModal.classList.remove('active');
+            document.body.style.overflow = 'auto';
+        }
+
+        // Обработчики событий для модального окна загрузки
         if (uploadPluginBtn) {
             uploadPluginBtn.addEventListener('click', openUploadModal);
         }
@@ -833,12 +1232,41 @@
             cancelUpload.addEventListener('click', closeUploadModalFunc);
         }
 
-        // Закрытие модального окна при клике вне его области
+        // Обработчики событий для модального окна информации
+        if (closeInfoModal) {
+            closeInfoModal.addEventListener('click', closeInfoModalFunc);
+        }
+
+        if (closeInfoBtn) {
+            closeInfoBtn.addEventListener('click', closeInfoModalFunc);
+        }
+
+        // Закрытие модальных окон при клике вне их области
         uploadModal.addEventListener('click', function(e) {
             if (e.target === uploadModal) {
                 closeUploadModalFunc();
             }
         });
+
+        infoModal.addEventListener('click', function(e) {
+            if (e.target === infoModal) {
+                closeInfoModalFunc();
+            }
+        });
+
+        // Изменение источника плагина
+        if (pluginSource) {
+            pluginSource.addEventListener('change', function() {
+                const source = this.value;
+
+                fileSourceGroup.style.display = source === 'file' ? 'block' : 'none';
+                urlSourceGroup.style.display = source === 'url' ? 'block' : 'none';
+                marketplaceSourceGroup.style.display = source === 'marketplace' ? 'block' : 'none';
+
+                // Показываем проверку зависимостей для marketplace
+                dependencyCheck.style.display = source === 'marketplace' ? 'block' : 'none';
+            });
+        }
 
         // Drag and drop для загрузки файлов
         if (fileDropArea) {
@@ -886,6 +1314,15 @@
             });
         }
 
+        // Кнопка установки зависимостей
+        const installDependenciesBtn = document.getElementById('installDependenciesBtn');
+        if (installDependenciesBtn) {
+            installDependenciesBtn.addEventListener('click', function() {
+                alert('Функция установки зависимостей будет реализована в backend части');
+                closeInfoModalFunc();
+            });
+        }
+
         // Фильтрация по статусу
         const filterTabs = document.querySelectorAll('.filter-tab');
         const pluginCards = document.querySelectorAll('.plugin-card');
@@ -904,12 +1341,14 @@
                 pluginCards.forEach(card => {
                     const status = card.getAttribute('data-status');
                     const hasUpdate = card.getAttribute('data-update') === 'true';
+                    const isExtension = card.getAttribute('data-extension') === 'true';
                     let isVisible = false;
 
                     if (filter === 'all') isVisible = true;
                     else if (filter === 'active') isVisible = status === 'active';
                     else if (filter === 'inactive') isVisible = status === 'inactive';
                     else if (filter === 'updates') isVisible = hasUpdate;
+                    else if (filter === 'extensions') isVisible = isExtension;
 
                     card.style.display = isVisible ? 'block' : 'none';
                 });
@@ -973,9 +1412,40 @@
         infoButtons.forEach(btn => {
             btn.addEventListener('click', function() {
                 const pluginName = this.getAttribute('data-plugin');
-                alert(`Детальная информация о плагине "${pluginName}" будет отображена здесь.`);
+                const pluginCard = this.closest('.plugin-card');
+                const pluginDescription = pluginCard.querySelector('.plugin-description').textContent;
+                const pluginVersion = pluginCard.querySelector('.plugin-version').textContent;
+                const pluginAuthor = pluginCard.querySelector('.plugin-author').textContent;
+
+                openInfoModal(pluginName, pluginDescription, pluginVersion, pluginAuthor);
             });
         });
+
+        // Кнопки расширения информации
+        const expandButtons = document.querySelectorAll('.expand-btn');
+        expandButtons.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const pluginCard = this.closest('.plugin-card');
+                pluginCard.classList.toggle('expanded');
+
+                const icon = this.querySelector('i');
+                if (pluginCard.classList.contains('expanded')) {
+                    icon.classList.remove('fa-chevron-down');
+                    icon.classList.add('fa-chevron-up');
+                } else {
+                    icon.classList.remove('fa-chevron-up');
+                    icon.classList.add('fa-chevron-down');
+                }
+            });
+        });
+
+        // Кнопка магазина плагинов
+        const marketplaceBtn = document.getElementById('pluginMarketplaceBtn');
+        if (marketplaceBtn) {
+            marketplaceBtn.addEventListener('click', function() {
+                alert('Магазин плагинов будет реализован в будущей версии');
+            });
+        }
     });
 </script>
 </body>
