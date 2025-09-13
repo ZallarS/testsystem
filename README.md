@@ -93,7 +93,3 @@ autoload.php - Автозагрузчик классов
 composer.json - Зависимости Composer
 
 console - Консольный скрипт
-
-setup_database.php - Скрипт настройки БД
-
-check_database.php - Скрипт проверки БД
