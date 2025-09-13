@@ -157,14 +157,27 @@
             }
         }
 
-        private function validatePluginSignature($pluginName, $manifestFile)
+        private function validatePluginSignature($pluginName)
         {
-            // Здесь может быть реализована проверка цифровой подписи
-            // Например, проверка SHA256 хеша файлов плагина
-            return true; // Временно всегда возвращаем true
+            $pluginPath = PLUGINS_PATH . $pluginName;
+            $signatureFile = $pluginPath . '/signature.sha256';
+
+            if (!file_exists($signatureFile)) {
+                return false;
+            }
+
+            $expected = file_get_contents($signatureFile);
+            $actual = hash_file('sha256', $pluginPath . '/Plugin.php');
+
+            return hash_equals($expected, $actual);
         }
 
         public function deactivatePlugin($pluginName) {
+
+            if (!$this->validatePluginSignature($pluginName)) {
+                throw new \Exception("Invalid plugin signature");
+            }
+
             if (!$this->isPluginActive($pluginName)) {
                 throw new \Exception("Plugin {$pluginName} is not active");
             }

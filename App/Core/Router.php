@@ -181,25 +181,13 @@
         private function executeMiddlewareStack($middlewareStack, $route, $params)
         {
             $middlewareIndex = 0;
-
             $next = function() use (&$middlewareIndex, $middlewareStack, $route, $params, &$next) {
                 if ($middlewareIndex < count($middlewareStack)) {
                     $middleware = $middlewareStack[$middlewareIndex++];
-
-                    if (is_string($middleware)) {
-                        $middleware = new $middleware();
-                    }
-
-                    if (is_object($middleware) && method_exists($middleware, 'handle')) {
-                        return $middleware->handle($next);
-                    } else {
-                        throw new \Exception("Middleware must have a handle method");
-                    }
-                } else {
-                    return $this->executeHandler($route['handler'], $params);
+                    return $middleware->handle($next);
                 }
+                return $this->executeHandler($route['handler'], $params);
             };
-
             return $next();
         }
     }

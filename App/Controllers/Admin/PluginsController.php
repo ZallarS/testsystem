@@ -37,6 +37,11 @@
         }
 
         public function activate($pluginName) {
+
+            if (!preg_match('/^[a-zA-Z0-9_-]+$/', $pluginName)) {
+                return Response::redirect('/admin/plugins?error=Invalid plugin name');
+            }
+
             try {
                 if ($this->pluginManager->activatePlugin($pluginName)) {
                     return Response::redirect('/admin/plugins?message=Плагин успешно активирован');

@@ -68,14 +68,9 @@
             $bindings = [];
 
             foreach ($conditions as $key => $value) {
-                // Экранируем имя колонки
-                $safeKey = preg_replace('/[^a-zA-Z0-9_]/', '', $key);
-                if ($safeKey !== $key) {
-                    throw new \Exception("Invalid column name: $key");
-                }
-
-                $whereClause[] = "`$safeKey` = :$safeKey";
-                $bindings[":$safeKey"] = $value;
+                $paramName = ':' . $key;
+                $whereClause[] = "`$key` = $paramName";
+                $bindings[$paramName] = $value;
             }
 
             $whereClause = implode(' AND ', $whereClause);

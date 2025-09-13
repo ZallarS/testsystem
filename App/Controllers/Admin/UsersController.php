@@ -43,6 +43,12 @@
 
         public function update($id)
         {
+            try {
+                \App\Core\CSRF::validateToken($_POST['csrf_token'] ?? '');
+            } catch (\Exception $e) {
+                return Response::redirect('/admin/users?error=CSRF validation failed');
+            }
+
             $user = $this->userModel->find($id);
 
             if (!$user) {

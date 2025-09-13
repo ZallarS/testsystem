@@ -12,7 +12,8 @@
         public function execute($input, $output)
         {
             $seederClass = $input[2] ?? 'UserSeeder';
-            $seederFile = BASE_PATH . '/database/seeds/' . $seederClass . '.php';
+            $allowedPath = realpath(BASE_PATH . '/database/seeds');
+            $seederFile = realpath(BASE_PATH . '/database/seeds/' . $seederClass . '.php');
 
             if (!file_exists($seederFile)) {
                 $this->write("Seeder file not found: $seederFile", $output);
@@ -23,6 +24,11 @@
 
             if (!class_exists($seederClass)) {
                 $this->write("Seeder class not found: $seederClass", $output);
+                return 1;
+            }
+
+            if (strpos($seederFile, $allowedPath) !== 0) {
+                $this->write("Invalid seeder path", $output);
                 return 1;
             }
 

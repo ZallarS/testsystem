@@ -24,19 +24,6 @@
 
         public static function view($viewPath, $data = [], $statusCode = 200, $headers = [])
         {
-            // Автоматически экранируем все строковые данные
-            $data = array_map(function($item) {
-                if (is_string($item)) {
-                    return htmlspecialchars($item, ENT_QUOTES, 'UTF-8');
-                }
-                if (is_array($item)) {
-                    return array_map(function($subItem) {
-                        return is_string($subItem) ? htmlspecialchars($subItem, ENT_QUOTES, 'UTF-8') : $subItem;
-                    }, $item);
-                }
-                return $item;
-            }, $data);
-
             extract($data);
             ob_start();
             include VIEWS_PATH . $viewPath . '.php';

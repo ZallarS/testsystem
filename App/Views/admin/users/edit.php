@@ -7,7 +7,8 @@
         </div>
     <?php endif; ?>
 
-    <form method="POST" action="/admin/users/update/<?= $user['id'] ?>">
+    <form method="POST" action="/admin/users/update/<?= htmlspecialchars($user['id']) ?>">
+        <input type="hidden" name="csrf_token" value="<?= \App\Core\CSRF::generateToken() ?>">
         <div class="mb-3">
             <label for="name" class="form-label">Name</label>
             <input type="text" class="form-control" id="name" name="name" value="<?= htmlspecialchars($user['name']) ?>" required>

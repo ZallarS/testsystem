@@ -72,6 +72,19 @@ class Session
 
             error_log("Session started with ID: " . session_id());
         }
+
+        if (self::$cliMode) {
+            return;
+        }
+
+        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        if (empty($_SESSION['user_agent'])) {
+            $_SESSION['user_agent'] = $userAgent;
+        } elseif ($_SESSION['user_agent'] !== $userAgent) {
+            session_regenerate_id(true);
+            $_SESSION = [];
+        }
+
     }
 
     public static function get($key, $default = null)
