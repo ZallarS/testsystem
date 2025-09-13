@@ -68,6 +68,9 @@
             $bindings = [];
 
             foreach ($conditions as $key => $value) {
+                if (!preg_match('/^[a-zA-Z0-9_]+$/', $key)) {
+                    throw new \InvalidArgumentException('Invalid column name');
+                }
                 $paramName = ':' . $key;
                 $whereClause[] = "`$key` = $paramName";
                 $bindings[$paramName] = $value;

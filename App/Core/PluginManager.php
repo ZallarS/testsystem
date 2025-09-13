@@ -97,7 +97,12 @@
                 }
 
                 // Проверяем, что это директория
-                $pluginPath = $pluginsDir . $folder;
+                $pluginPath = realpath($pluginsDir . $folder);
+                if (strpos($pluginPath, realpath($pluginsDir)) !== 0) {
+                    error_log("Skipping plugin outside directory: $folder");
+                    continue;
+                }
+
                 if (!is_dir($pluginPath)) {
                     continue;
                 }

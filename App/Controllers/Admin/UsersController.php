@@ -50,6 +50,12 @@
             }
 
             $user = $this->userModel->find($id);
+            $allowedRoles = ['user', 'moderator', 'admin'];
+            $role = $_POST['role'] ?? $user['role'];
+
+            if (!in_array($role, $allowedRoles)) {
+                return Response::redirect('/admin/users?error=Invalid role');
+            }
 
             if (!$user) {
                 return Response::make('User not found', 404);

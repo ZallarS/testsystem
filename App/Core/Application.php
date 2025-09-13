@@ -48,13 +48,12 @@
 
         public function handleException($exception)
         {
-            error_log("Неперехваченное исключение: " . $exception->getMessage());
+            error_log("Uncaught exception: " . $exception->getMessage());
 
-            // Всегда показываем ошибки в режиме разработки
-            if ($this->isDevelopment() || ($_ENV['APP_DEBUG'] ?? false)) {
-                echo "<h1>Error: " . htmlspecialchars($exception->getMessage()) . "</h1>";
-                echo "<p>File: " . htmlspecialchars($exception->getFile()) . ":" . $exception->getLine() . "</p>";
-                echo "<pre>" . htmlspecialchars($exception->getTraceAsString()) . "</pre>";
+            if ($this->isDevelopment()) {
+                echo "<h1>Error: " . e($exception->getMessage()) . "</h1>";
+                echo "<p>File: " . e($exception->getFile()) . ":" . $exception->getLine() . "</p>";
+                echo "<pre>" . e($exception->getTraceAsString()) . "</pre>";
             } else {
                 http_response_code(500);
                 echo "An error occurred. Please try again later.";
@@ -89,6 +88,7 @@
         {
             // Добавляем SessionMiddleware глобально
             $this->router->middleware([new \App\Middleware\SessionMiddleware()]);
+            $this->router->middleware([new \App\Middleware\VerifyCsrfToken()]);
 
             // Загружаем активные плагины
             $this->pluginManager->bootActivePlugins();

@@ -34,6 +34,11 @@
 
         public static function redirect($url, $statusCode = 303)
         {
+            // Проверяем, является ли URL относительным
+            if (strpos($url, '://') === false && $url[0] !== '/') {
+                $url = '/' . $url;
+            }
+
             // Для CLI-режима просто выводим сообщение
             if (php_sapi_name() === 'cli') {
                 echo "Redirect to: $url\n";
