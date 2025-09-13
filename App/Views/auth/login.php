@@ -20,6 +20,7 @@ use App\Core\User;
         <?php endif; ?>
 
         <form action="/login" method="POST" class="auth-form">
+            <input type="hidden" name="csrf_token" value="<?= \App\Core\CSRF::generateToken() ?>">
             <div class="form-group">
                 <label for="email">Электроанная почта</label>
                 <input type="email" id="email" name="email" value="<?= isset($email) ? htmlspecialchars($email) : '' ?>" required placeholder="test@test.ru">

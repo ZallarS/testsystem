@@ -43,13 +43,18 @@
 
         public function processLogin()
         {
+            error_log("Process login started. Session ID: " . (\App\Core\Session::id() ?? 'none'));
+
             $email = $_POST['email'] ?? '';
             $password = $_POST['password'] ?? '';
+
+            error_log("Login attempt for email: $email");
 
             // Валидация
             $errors = $this->validateLogin($email, $password);
 
             if (!empty($errors)) {
+                error_log("Validation errors: " . implode(', ', $errors));
                 return $this->view('auth/login', [
                     'error' => 'Please fix the errors below',
                     'errors' => $errors,
@@ -62,6 +67,7 @@
             $user = $this->userModel->findByEmail($email);
 
             if (!$user || !password_verify($password, $user['password'])) {
+                error_log("Invalid credentials for email: $email");
                 return $this->view('auth/login', [
                     'error' => 'Invalid email or password',
                     'email' => $email,
@@ -69,18 +75,39 @@
                 ]);
             }
 
+            error_log("User found: " . $user['id']);
+
             // Загружаем роли пользователя
             $userModelInstance = new \App\Models\User();
             $userModelInstance->id = $user['id'];
             $roles = $userModelInstance->roles();
+
+            error_log("User roles: " . implode(', ', $roles));
 
             // Успешный вход
             User::login([
                 'id' => $user['id'],
                 'email' => $user['email'],
                 'name' => $user['name'],
-                'roles' => $roles // Теперь это простой массив названий ролей
+                'roles' => $roles
             ]);
+
+            // Проверяем, сохранились ли данные в сессии
+            $loggedInUser = User::get();
+            if ($loggedInUser && $loggedInUser['id'] == $user['id']) {
+                error_log("SUCCESS: User data verified in session");
+            } else {
+                error_log("ERROR: User data not found in session after login");
+                error_log("Session content: " . print_r($_SESSION, true));
+            }
+
+            // Для HTTP-режима используем промежуточную страницу
+            if (php_sapi_name() !== 'cli') {
+                error_log("Redirecting to login success page");
+                return $this->view('auth/login_success', [
+                    'title' => 'Login Successful - My Application'
+                ]);
+            }
 
             return Response::redirect('/');
         }
@@ -159,6 +186,18 @@
         private function validateRegistration($name, $email, $password, $confirmPassword)
         {
             $errors = [];
+
+            if (!Validator::string($name, 2, 50)) {
+                $errors[] = 'Name must be between 2 and 50 characters';
+            }
+
+            if (!Validator::email($email)) {
+                $errors[] = 'Valid email is required';
+            }
+
+            if (!Validator::string($password, 6)) {
+                $errors[] = 'Password must be at least 6 characters';
+            }
 
             if (empty($name) || strlen($name) < 2) {
                 $errors[] = 'Name must be at least 2 characters';

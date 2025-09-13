@@ -86,7 +86,11 @@
             }
         }
 
-        public function boot() {
+        public function boot()
+        {
+            // Добавляем SessionMiddleware глобально
+            $this->router->middleware([new \App\Middleware\SessionMiddleware()]);
+
             // Загружаем активные плагины
             $this->pluginManager->bootActivePlugins();
 
@@ -150,11 +154,11 @@
                 $path = substr($path, 0, -1);
             }
 
-            // Отладочная информация
-            if ($path === '/debug-routes') {
-                $this->showDebugInfo();
-                return;
-            }
+            // Диагностика
+            error_log("Request: $method $path");
+            error_log("Session status: " . session_status());
+            error_log("Session ID: " . (session_status() === PHP_SESSION_ACTIVE ? session_id() : 'none'));
+            error_log("Cookies: " . print_r($_COOKIE, true));
 
             // Обработка запроса
             try {
@@ -166,9 +170,9 @@
                     echo $result;
                 }
             } catch (\Exception $e) {
+                error_log("Error: " . $e->getMessage());
                 $response = Response::make("500 - Internal Server Error", 500);
                 $response->send();
-                error_log("Ошибка: " . $e->getMessage());
             }
         }
 

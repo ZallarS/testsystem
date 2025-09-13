@@ -7,55 +7,81 @@
         private $activePlugins = [];
         private $container;
 
-        public function __construct($container) {
+        public function __construct($container)
+        {
             $this->container = $container;
-            $this->ensureStorageDirectoryExists();
+
+            try {
+                $this->ensureStorageDirectoryExists();
+            } catch (\Exception $e) {
+                // Логируем ошибку, но не прерываем работу
+                error_log("PluginManager storage initialization failed: " . $e->getMessage());
+            }
+
             $this->loadPlugins();
             $this->loadActivePlugins();
         }
 
-        private function ensureStorageDirectoryExists() {
-            if (!is_dir(STORAGE_PATH)) {
-                if (!mkdir(STORAGE_PATH, 0755, true)) {
-                    // Попробуем создать с помощью sudo, если возможно
-                    if (function_exists('shell_exec')) {
-                        shell_exec('sudo mkdir -p ' . escapeshellarg(STORAGE_PATH));
-                        shell_exec('sudo chmod 755 ' . escapeshellarg(STORAGE_PATH));
-                        shell_exec('sudo chown www-data:www-data ' . escapeshellarg(STORAGE_PATH));
-                    }
+        private function ensureStorageDirectoryExists()
+        {
+            try {
+                $storagePath = $this->getStoragePath();
 
-                    if (!is_dir(STORAGE_PATH)) {
-                        throw new \Exception("Cannot create storage directory: " . STORAGE_PATH);
-                    }
-                }
-            }
-
-            // Проверяем права на запись
-            if (!is_writable(STORAGE_PATH)) {
-                // Попытаемся изменить права
-                if (function_exists('shell_exec')) {
-                    shell_exec('sudo chmod 755 ' . escapeshellarg(STORAGE_PATH));
-                    shell_exec('sudo chown www-data:www-data ' . escapeshellarg(STORAGE_PATH));
+                // Если используем альтернативный путь, не создаём .htaccess
+                if ($storagePath !== STORAGE_PATH) {
+                    return;
                 }
 
-                if (!is_writable(STORAGE_PATH)) {
-                    // Создадим временный файл в системной tmp директории
-                    define('ALT_STORAGE_PATH', sys_get_temp_dir() . '/testsystem_storage/');
-                    if (!is_dir(ALT_STORAGE_PATH)) {
-                        mkdir(ALT_STORAGE_PATH, 0755, true);
-                    }
+                // Создаём .htaccess только в основной директории
+                $htaccess = STORAGE_PATH . '.htaccess';
+                if (!file_exists($htaccess)) {
+                    // Пытаемся создать, но не прерываем выполнение при ошибке
+                    @file_put_contents($htaccess, "Deny from all\n");
                 }
+            } catch (\Exception $e) {
+                // Логируем ошибку, но не прерываем выполнение
+                error_log("Storage directory initialization failed: " . $e->getMessage());
             }
         }
 
-        private function getStoragePath() {
+        private function getStoragePath()
+        {
+            // Если уже определён альтернативный путь, используем его
             if (defined('ALT_STORAGE_PATH') && is_writable(ALT_STORAGE_PATH)) {
                 return ALT_STORAGE_PATH;
             }
-            return STORAGE_PATH;
+
+            // Проверяем основную директорию
+            if (is_dir(STORAGE_PATH) && is_writable(STORAGE_PATH)) {
+                return STORAGE_PATH;
+            }
+
+            // Если основная директория недоступна для записи, используем временную
+            $tempPath = sys_get_temp_dir() . '/testsystem_storage/';
+
+            // Создаём временную директорию, если её нет
+            if (!is_dir($tempPath)) {
+                if (!mkdir($tempPath, 0755, true)) {
+                    // Если не можем создать временную директорию, выбрасываем исключение
+                    throw new \Exception("Cannot create storage directory: " . $tempPath);
+                }
+            }
+
+            // Проверяем, что временная директория доступна для записи
+            if (!is_writable($tempPath)) {
+                throw new \Exception("Temporary storage directory is not writable: " . $tempPath);
+            }
+
+            // Определяем константу для альтернативного пути
+            if (!defined('ALT_STORAGE_PATH')) {
+                define('ALT_STORAGE_PATH', $tempPath);
+            }
+
+            return ALT_STORAGE_PATH;
         }
 
-        public function loadPlugins() {
+        public function loadPlugins()
+        {
             $pluginsDir = PLUGINS_PATH;
 
             if (!is_dir($pluginsDir)) {
@@ -65,9 +91,24 @@
             $pluginFolders = scandir($pluginsDir);
 
             foreach ($pluginFolders as $folder) {
-                if ($folder === '.' || $folder === '..') continue;
+                // Пропускаем служебные папки и скрытые файлы
+                if ($folder === '.' || $folder === '..' || $folder[0] === '.') {
+                    continue;
+                }
 
-                $pluginFile = $pluginsDir . $folder . '/Plugin.php';
+                // Проверяем, что это директория
+                $pluginPath = $pluginsDir . $folder;
+                if (!is_dir($pluginPath)) {
+                    continue;
+                }
+
+                // Проверяем валидность имени папки
+                if (!preg_match('/^[a-zA-Z0-9_][a-zA-Z0-9_.-]*$/', $folder)) {
+                    error_log("Invalid plugin folder name: $folder");
+                    continue;
+                }
+
+                $pluginFile = $pluginPath . '/Plugin.php';
 
                 if (file_exists($pluginFile)) {
                     $pluginClass = "Plugins\\{$folder}\\Plugin";
@@ -116,6 +157,13 @@
             }
         }
 
+        private function validatePluginSignature($pluginName, $manifestFile)
+        {
+            // Здесь может быть реализована проверка цифровой подписи
+            // Например, проверка SHA256 хеша файлов плагина
+            return true; // Временно всегда возвращаем true
+        }
+
         public function deactivatePlugin($pluginName) {
             if (!$this->isPluginActive($pluginName)) {
                 throw new \Exception("Plugin {$pluginName} is not active");
@@ -151,7 +199,8 @@
             return $this->activePlugins;
         }
 
-        private function saveActivePlugins() {
+        private function saveActivePlugins()
+        {
             try {
                 $active = array_keys($this->activePlugins);
                 $storagePath = $this->getStoragePath();
@@ -160,69 +209,50 @@
                 $result = file_put_contents($file, json_encode($active, JSON_PRETTY_PRINT));
 
                 if ($result === false) {
-                    // Попробуем использовать временную директорию
-                    $tempFile = sys_get_temp_dir() . '/active_plugins.json';
-                    $result = file_put_contents($tempFile, json_encode($active, JSON_PRETTY_PRINT));
-
-                    if ($result === false) {
-                        throw new \Exception("Failed to write to active plugins file");
-                    }
-
-                    // Попробуем переместить файл
-                    if (!rename($tempFile, $file)) {
-                        // Если не удалось переместить, будем использовать временный файл
-                        define('ACTIVE_PLUGINS_FILE', $tempFile);
-                    }
+                    throw new \Exception("Failed to write to active plugins file");
                 }
 
                 return true;
             } catch (\Exception $e) {
                 error_log("Error saving active plugins: " . $e->getMessage());
-                throw new \Exception("Failed to save active plugins: " . $e->getMessage());
+                return false;
             }
         }
 
-        private function loadActivePlugins() {
-            $storagePath = $this->getStoragePath();
-            $file = $storagePath . 'active_plugins.json';
+        private function loadActivePlugins()
+        {
+            try {
+                $storagePath = $this->getStoragePath();
+                $file = $storagePath . 'active_plugins.json';
 
-            // Если основной файл не существует, проверяем временный
-            if (!file_exists($file) && defined('ACTIVE_PLUGINS_FILE')) {
-                $file = ACTIVE_PLUGINS_FILE;
-            }
-
-            if (!file_exists($file)) {
-                return;
-            }
-
-            if (!is_readable($file)) {
-                // Попробуем изменить права
-                if (function_exists('shell_exec')) {
-                    shell_exec('sudo chmod 644 ' . escapeshellarg($file));
+                if (!file_exists($file)) {
+                    return;
                 }
 
                 if (!is_readable($file)) {
                     error_log("Active plugins file is not readable: " . $file);
                     return;
                 }
-            }
 
-            $content = file_get_contents($file);
-            if ($content === false) {
-                error_log("Failed to read active plugins file: " . $file);
-                return;
-            }
-
-            $active = json_decode($content, true);
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                error_log("Active plugins file contains invalid JSON: " . $file);
-                return;
-            }
-
-            foreach ($active as $pluginName) {
-                if (isset($this->plugins[$pluginName])) {
-                    $this->activePlugins[$pluginName] = $this->plugins[$pluginName];
+                $content = file_get_contents($file);
+                if ($content === false) {
+                    error_log("Failed to read active plugins file: " . $file);
+                    return;
                 }
+
+                $active = json_decode($content, true);
+                if (json_last_error() !== JSON_ERROR_NONE) {
+                    error_log("Active plugins file contains invalid JSON: " . $file);
+                    return;
+                }
+
+                foreach ($active as $pluginName) {
+                    if (isset($this->plugins[$pluginName])) {
+                        $this->activePlugins[$pluginName] = $this->plugins[$pluginName];
+                    }
+                }
+            } catch (\Exception $e) {
+                error_log("Error loading active plugins: " . $e->getMessage());
             }
         }
 
