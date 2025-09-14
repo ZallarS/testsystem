@@ -32,4 +32,48 @@
             if ($max !== null && $value > $max) return false;
             return true;
         }
+
+        public static function password($password)
+        {
+            if (strlen($password) < 10) {
+                return false;
+            }
+
+            if (!preg_match('/[A-Z]/', $password)) {
+                return false;
+            }
+
+            if (!preg_match('/[a-z]/', $password)) {
+                return false;
+            }
+
+            if (!preg_match('/[0-9]/', $password)) {
+                return false;
+            }
+
+            if (!preg_match('/[^A-Za-z0-9]/', $password)) {
+                return false;
+            }
+
+            // Проверка на распространённые пароли
+            $commonPasswords = ['password', '123456', 'qwerty', 'letmein', 'welcome', 'monkey'];
+            if (in_array(strtolower($password), $commonPasswords)) {
+                return false;
+            }
+
+            return true;
+        }
+
+        public static function sanitizeInput($input)
+        {
+            if (is_array($input)) {
+                return array_map([self::class, 'sanitizeInput'], $input);
+            }
+
+            // Удаляем потенциально опасные теги и символы
+            $clean = strip_tags($input);
+            $clean = htmlspecialchars($clean, ENT_QUOTES, 'UTF-8');
+
+            return $clean;
+        }
     }

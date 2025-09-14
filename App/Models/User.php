@@ -17,17 +17,27 @@
         public function roles()
         {
             if (!isset($this->id) || !is_numeric($this->id)) {
+                error_log("Invalid user ID in roles() method: " . ($this->id ?? 'undefined'));
                 return [];
             }
 
-            $stmt = $this->db->prepare("
-                SELECT roles.name FROM roles 
-                INNER JOIN role_user ON roles.id = role_user.role_id 
-                WHERE role_user.user_id = :user_id
-            ");
-            $stmt->bindParam(':user_id', $this->id, PDO::PARAM_INT);
-            $stmt->execute();
-            return $stmt->fetchAll(PDO::FETCH_COLUMN);
+            try {
+                $stmt = $this->db->prepare("
+            SELECT roles.name FROM roles 
+            INNER JOIN role_user ON roles.id = role_user.role_id 
+            WHERE role_user.user_id = :user_id
+        ");
+                $stmt->bindParam(':user_id', $this->id, PDO::PARAM_INT);
+                $stmt->execute();
+
+                $roles = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                error_log("Roles for user {$this->id}: " . print_r($roles, true));
+
+                return $roles;
+            } catch (\Exception $e) {
+                error_log("Error fetching roles for user {$this->id}: " . $e->getMessage());
+                return [];
+            }
         }
 
         public function findByEmail($email)

@@ -98,28 +98,28 @@
             $className = $this->getClassNameFromFilename($migration);
 
             if (!class_exists($className)) {
-                throw new Exception("Класс $className Не найден в миграционом файле: $migration");
+                throw new \Exception("Класс $className Не найден в миграционом файле: $migration");
             }
 
             // Устанавливаем соединение для Schema
-            Schema::setConnection($this->db); // Добавляем эту строку
+            Schema::setConnection($this->db);
 
             $instance = new $className();
 
             try {
+                // Начинаем транзакцию для безопасного выполнения миграции
+                $this->db->beginTransaction();
+
                 echo "Применение миграции: $migration\n";
-                $instance->up(); // Теперь up не принимает аргументов, т.к. использует Schema
+                $instance->up();
                 $this->recordMigration($migration, $batch);
+
+                $this->db->commit();
                 echo "Миграция применена: $migration\n";
 
             } catch (Exception $e) {
+                $this->db->rollBack();
                 echo "Ошибка применения миграции $migration: " . $e->getMessage() . "\n";
-                try {
-                    $instance->down();
-                    echo "Выполнен откат миграции: $migration\n";
-                } catch (Exception $rollbackException) {
-                    echo "Ошибка при откате миграции: " . $rollbackException->getMessage() . "\n";
-                }
                 throw new Exception("Миграция не применена: " . $e->getMessage());
             }
         }

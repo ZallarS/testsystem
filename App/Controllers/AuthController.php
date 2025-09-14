@@ -190,16 +190,25 @@
         {
             $errors = [];
 
-            if (strlen($password) < 8) {
-                $errors[] = 'Password must be at least 8 characters';
+            // Более строгая проверка пароля
+            if (strlen($password) < 10) {
+                $errors[] = 'Password must be at least 10 characters';
             }
 
             if (!preg_match('/[A-Z]/', $password)) {
                 $errors[] = 'Password must contain at least one uppercase letter';
             }
 
+            if (!preg_match('/[a-z]/', $password)) {
+                $errors[] = 'Password must contain at least one lowercase letter';
+            }
+
             if (!preg_match('/[0-9]/', $password)) {
                 $errors[] = 'Password must contain at least one number';
+            }
+
+            if (!preg_match('/[^A-Za-z0-9]/', $password)) {
+                $errors[] = 'Password must contain at least one special character';
             }
 
             if (!Validator::string($name, 2, 50)) {
@@ -210,26 +219,14 @@
                 $errors[] = 'Valid email is required';
             }
 
-            if (!Validator::string($password, 6)) {
-                $errors[] = 'Password must be at least 6 characters';
-            }
-
-            if (empty($name) || strlen($name) < 2) {
-                $errors[] = 'Name must be at least 2 characters';
-            }
-
-            if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                $errors[] = 'Valid email is required';
-            } elseif ($this->userModel->findByEmail($email)) {
-                $errors[] = 'Email is already registered';
-            }
-
-            if (empty($password) || strlen($password) < 6) {
-                $errors[] = 'Password must be at least 6 characters';
-            }
-
             if ($password !== $confirmPassword) {
                 $errors[] = 'Passwords do not match';
+            }
+
+            // Проверка на распространённые пароли
+            $commonPasswords = ['password', '123456', 'qwerty', 'letmein'];
+            if (in_array(strtolower($password), $commonPasswords)) {
+                $errors[] = 'Password is too common';
             }
 
             return $errors;
