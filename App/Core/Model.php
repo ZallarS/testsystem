@@ -72,6 +72,11 @@
             return $stmt->execute();
         }
 
+        public function getDb()
+        {
+            return $this->db;
+        }
+
         public function delete($id)
         {
             if (!is_numeric($id)) {

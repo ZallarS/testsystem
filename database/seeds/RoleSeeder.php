@@ -8,7 +8,6 @@
         {
             $roles = [
                 ['name' => 'admin', 'description' => 'Administrator with full access'],
-                ['name' => 'moderator', 'description' => 'Moderator with limited administrative access'],
                 ['name' => 'user', 'description' => 'Regular user']
             ];
 

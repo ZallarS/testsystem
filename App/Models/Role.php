@@ -10,11 +10,14 @@
 
         // Стандартные роли
         const ADMIN = 'admin';
-        const MODERATOR = 'moderator';
         const USER = 'user';
 
-        public function findByName($name) {
-            $stmt = $this->db->prepare("SELECT * FROM {$this->table} WHERE name = :name");
+        public function findByName($name)
+        {
+            // Приводим имя роли к нижнему регистру для унификации
+            $name = strtolower(trim($name));
+
+            $stmt = $this->db->prepare("SELECT * FROM {$this->table} WHERE LOWER(name) = :name");
             $stmt->bindParam(':name', $name, PDO::PARAM_STR);
             $stmt->execute();
             return $stmt->fetch(PDO::FETCH_ASSOC);

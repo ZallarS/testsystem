@@ -114,6 +114,10 @@
 
         public static function hasRole($role) {
             $roles = self::getRoles();
+            // Приводим все к нижнему регистру для унификации
+            $role = strtolower($role);
+            $roles = array_map('strtolower', $roles);
+
             error_log("Checking if user has role '$role'. Available roles: " . print_r($roles, true));
             return in_array($role, $roles);
         }
@@ -157,11 +161,6 @@
             return self::hasRole('admin');
         }
 
-        public static function isModerator()
-        {
-            return self::hasRole('moderator') || self::isAdmin();
-        }
-
         public static function can($permission) {
             // Здесь можно реализовать проверку конкретных разрешений
             // Пока просто проверяем роль
@@ -170,7 +169,6 @@
             // Маппинг ролей к разрешениям
             $permissions = [
                 'user' => ['view_profile', 'edit_profile'],
-                'moderator' => ['manage_content', 'manage_users'],
                 'admin' => ['manage_plugins', 'manage_settings', 'manage_all']
             ];
 

@@ -75,12 +75,17 @@
                                 <td><?= htmlspecialchars($user['name']) ?></td>
                                 <td><?= htmlspecialchars($user['email']) ?></td>
                                 <td>
-                                    <span class="badge bg-<?=
-                                    $user['role'] === 'admin' ? 'danger' :
-                                        ($user['role'] === 'moderator' ? 'warning' : 'secondary')
-                                    ?>">
-                                        <?= ucfirst($user['role']) ?>
-                                    </span>
+                                    <?php
+                                    $userRoles = explode(',', $user['roles'] ?? '');
+                                    foreach ($userRoles as $role):
+                                        $badgeClass =
+                                            $role === 'admin' ? 'danger' :
+                                                ($role === 'moderator' ? 'warning' : 'secondary');
+                                        ?>
+                                        <span class="badge bg-<?= $badgeClass ?> me-1">
+                                            <?= ucfirst(trim($role)) ?>
+                                        </span>
+                                    <?php endforeach; ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>

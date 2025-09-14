@@ -47,6 +47,8 @@
         $router->get('/users/edit/{id}', [UsersController::class, 'edit']);
         $router->post('/users/update/{id}', [UsersController::class, 'update']);
         $router->post('/users/delete/{id}', [UsersController::class, 'delete']);
+        $router->get('/users/create', [UsersController::class, 'create']);
+        $router->post('/users/store', [UsersController::class, 'store']);
     }, ['middleware' => [AuthMiddleware::class, new RoleMiddleware('admin')]]);
 
     // Маршруты управления плагинами

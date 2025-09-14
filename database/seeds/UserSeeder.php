@@ -18,7 +18,6 @@
             // Создаем роли
             $roles = [
                 ['name' => 'admin', 'description' => 'Administrator with full access'],
-                ['name' => 'moderator', 'description' => 'Moderator with limited administrative access'],
                 ['name' => 'user', 'description' => 'Regular user']
             ];
 
@@ -33,7 +32,6 @@
 
             // Получаем ID ролей
             $adminRole = $this->db->query("SELECT id FROM roles WHERE name = 'admin'")->fetch();
-            $moderatorRole = $this->db->query("SELECT id FROM roles WHERE name = 'moderator'")->fetch();
             $userRole = $this->db->query("SELECT id FROM roles WHERE name = 'user'")->fetch();
 
             // Создаем пользователей
@@ -43,12 +41,6 @@
                     'email' => 'admin@example.com',
                     'password' => password_hash('password', PASSWORD_DEFAULT),
                     'role_id' => $adminRole['id'],
-                ],
-                [
-                    'name' => 'Moderator',
-                    'email' => 'moderator@example.com',
-                    'password' => password_hash('password', PASSWORD_DEFAULT),
-                    'role_id' => $moderatorRole['id'],
                 ],
                 [
                     'name' => 'User',
