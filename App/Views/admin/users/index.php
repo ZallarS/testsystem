@@ -4,7 +4,7 @@
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
     <h1 class="h2">Управление пользователями</h1>
     <div class="btn-toolbar mb-2 mb-md-0">
-        <a href="/admin/users/create" class="btn btn-sm btn-outline-primary">
+        <a href="/admin/users/create" class="btn btn-sm btn-primary">
             <i class="bi bi-plus-circle"></i> Добавить пользователя
         </a>
     </div>
@@ -28,14 +28,21 @@
                 <td><?= $user['id'] ?></td>
                 <td><?= htmlspecialchars($user['name']) ?></td>
                 <td><?= htmlspecialchars($user['email']) ?></td>
+
                 <td>
-                    <span class="badge bg-<?=
-                    $user['role'] === 'admin' ? 'danger' :
-                        ($user['role'] === 'moderator' ? 'warning' : 'secondary')
-                    ?>">
-                        <?= ucfirst($user['role']) ?>
-                    </span>
+                    <?php
+                    $userRoles = explode(',', $user['roles'] ?? '');
+                    foreach ($userRoles as $role):
+                        $badgeClass =
+                            $role === 'admin' ? 'danger' :
+                                ($role === 'moderator' ? 'warning' : 'secondary');
+                        ?>
+                        <span class="badge bg-<?= $badgeClass ?> me-1">
+                            <?= ucfirst(trim($role)) ?>
+                        </span>
+                        <?php endforeach; ?>
                 </td>
+
                 <td><?= date('d.m.Y H:i', strtotime($user['created_at'])) ?></td>
                 <td>
                     <div class="btn-group btn-group-sm">
@@ -62,6 +69,7 @@
                                 <div class="modal-footer">
                                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
                                     <form action="/admin/users/delete/<?= $user['id'] ?>" method="POST" class="d-inline">
+                                        <input type="hidden" name="csrf_token" value="<?= \App\Core\CSRF::generateToken() ?>">
                                         <button type="submit" class="btn btn-danger">Удалить</button>
                                     </form>
                                 </div>

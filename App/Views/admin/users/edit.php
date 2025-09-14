@@ -6,6 +6,7 @@
 </div>
 
 <form method="POST" action="/admin/users/update/<?= $user['id'] ?>">
+    <input type="hidden" name="csrf_token" value="<?= \App\Core\CSRF::generateToken() ?>">
     <div class="row">
         <div class="col-md-6">
             <div class="card">
@@ -22,14 +23,15 @@
                         <input type="email" class="form-control" id="email" name="email" value="<?= htmlspecialchars($user['email']) ?>" required>
                     </div>
                     <div class="mb-3">
-                        <label for="role" class="form-label">Роль пользователя</label>
-                        <select class="form-select" id="role" name="role" required>
+                        <label for="roles" class="form-label">Роли пользователя</label>
+                        <select class="form-select" id="roles" name="roles[]" multiple required>
                             <?php foreach ($roles as $role): ?>
-                                <option value="<?= $role ?>" <?= $user['role'] === $role ? 'selected' : '' ?>>
+                                <option value="<?= $role ?>" <?= in_array($role, $userRoles ?? []) ? 'selected' : '' ?>>
                                     <?= ucfirst($role) ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
+                        <div class="form-text">Для выбора нескольких ролей удерживайте Ctrl (Cmd на Mac)</div>
                     </div>
                 </div>
             </div>
