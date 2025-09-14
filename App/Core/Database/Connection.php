@@ -12,19 +12,32 @@
 
         private function __construct()
         {
-            // Загружаем конфигурацию базы данных
             $config = $this->loadConfig();
 
             $dsn = "mysql:host={$config['host']};dbname={$config['database']};charset={$config['charset']}";
 
-            try {
-                $this->pdo = new PDO($dsn, $config['username'], $config['password'], [
-                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                    PDO::ATTR_EMULATE_PREPARES => false,
-                ]);
-            } catch (PDOException $e) {
-                throw new \RuntimeException("Database connection failed: " . $e->getMessage());
+            $options = [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES => false,
+                PDO::ATTR_PERSISTENT => false,
+            ];
+
+            // Попытка подключения с повторением при ошибке
+            $attempts = 0;
+            $maxAttempts = 3;
+
+            while ($attempts < $maxAttempts) {
+                try {
+                    $this->pdo = new PDO($dsn, $config['username'], $config['password'], $options);
+                    break;
+                } catch (PDOException $e) {
+                    $attempts++;
+                    if ($attempts === $maxAttempts) {
+                        throw new \RuntimeException("Database connection failed after {$maxAttempts} attempts: " . $e->getMessage());
+                    }
+                    sleep(1); // Ждем 1 секунду перед повторной попыткой
+                }
             }
         }
 

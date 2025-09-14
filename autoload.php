@@ -1,5 +1,7 @@
 <?php
 
+    require_once __DIR__ . '/App/Core/Helpers.php';
+
     spl_autoload_register(function ($class) {
         $prefixes = [
             'App\\' => __DIR__ . '/App/',
