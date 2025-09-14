@@ -19,4 +19,10 @@
             }
             return true;
         }
+
+        public static function generateMetaTag()
+        {
+            $token = self::generateToken();
+            return '<meta name="csrf-token" content="' . e($token) . '">';
+        }
     }

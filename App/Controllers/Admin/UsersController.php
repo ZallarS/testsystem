@@ -28,6 +28,17 @@
 
         public function edit($id)
         {
+            // Проверяем, имеет ли текущий пользователь право редактировать этого пользователя
+            $currentUser = \App\Core\User::get();
+
+            // Администраторы могут редактировать любого пользователя
+            if (!\App\Core\User::isAdmin()) {
+                // Обычные пользователи могут редактировать только свой профиль
+                if ($currentUser['id'] != $id) {
+                    return Response::make('Access denied', 403);
+                }
+            }
+
             $user = $this->userModel->find($id);
 
             if (!$user) {
@@ -37,7 +48,7 @@
             return $this->view('admin/users/edit', [
                 'user' => $user,
                 'title' => 'Edit User',
-                'roles' => ['user', 'moderator', 'admin'] // Простой массив ролей
+                'roles' => ['user', 'moderator', 'admin']
             ]);
         }
 

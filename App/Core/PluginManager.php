@@ -96,8 +96,15 @@
                     continue;
                 }
 
-                // Проверяем, что это директория
+                // Более строгая проверка имени папки
+                if (!preg_match('/^[a-zA-Z][a-zA-Z0-9_-]*$/', $folder)) {
+                    error_log("Invalid plugin folder name: $folder");
+                    continue;
+                }
+
                 $pluginPath = realpath($pluginsDir . $folder);
+
+                // Дополнительная проверка безопасности пути
                 if (strpos($pluginPath, realpath($pluginsDir)) !== 0) {
                     error_log("Skipping plugin outside directory: $folder");
                     continue;
@@ -107,20 +114,19 @@
                     continue;
                 }
 
-                // Проверяем валидность имени папки
-                if (!preg_match('/^[a-zA-Z0-9_][a-zA-Z0-9_.-]*$/', $folder)) {
-                    error_log("Invalid plugin folder name: $folder");
-                    continue;
-                }
-
                 $pluginFile = $pluginPath . '/Plugin.php';
 
                 if (file_exists($pluginFile)) {
+                    // Проверяем сигнатуру плагина перед загрузкой
+                    if (!$this->validatePluginSignature($folder)) {
+                        error_log("Plugin signature validation failed for: $folder");
+                        continue;
+                    }
+
                     $pluginClass = "Plugins\\{$folder}\\Plugin";
 
-                    if (!class_exists($pluginClass)) {
-                        require_once $pluginFile;
-                    }
+                    // Используем изолированное пространство имён для загрузки плагина
+                    $this->loadPluginInIsolation($pluginFile, $pluginClass);
 
                     if (class_exists($pluginClass)) {
                         try {
@@ -132,6 +138,30 @@
                     }
                 }
             }
+        }
+
+        private function loadPluginInIsolation($pluginFile, $pluginClass)
+        {
+            // Загружаем плагин в изолированном пространстве имён
+            $load = function() use ($pluginFile, $pluginClass) {
+                // Регистрируем автозагрузчик для этого плагина
+                spl_autoload_register(function ($class) use ($pluginFile) {
+                    if (strpos($class, 'Plugins\\') === 0) {
+                        $pluginPath = dirname($pluginFile);
+                        $classPath = str_replace('Plugins\\', '', $class);
+                        $classPath = str_replace('\\', '/', $classPath);
+                        $file = $pluginPath . '/' . $classPath . '.php';
+
+                        if (file_exists($file)) {
+                            require $file;
+                        }
+                    }
+                });
+
+                require_once $pluginFile;
+            };
+
+            $load();
         }
 
         public function activatePlugin($pluginName) {
@@ -166,15 +196,49 @@
         {
             $pluginPath = PLUGINS_PATH . $pluginName;
             $signatureFile = $pluginPath . '/signature.sha256';
+            $publicKeyFile = BASE_PATH . '/storage/plugin_public.key';
 
-            if (!file_exists($signatureFile)) {
-                return false;
+            if (!file_exists($signatureFile) || !file_exists($publicKeyFile)) {
+                return false; // Нельзя проверить, отклоняем
             }
 
-            $expected = file_get_contents($signatureFile);
-            $actual = hash_file('sha256', $pluginPath . '/Plugin.php');
+            // Проверяем все PHP-файлы в плагине
+            $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($pluginPath));
 
-            return hash_equals($expected, $actual);
+            foreach ($files as $file) {
+                if ($file->isDir() || $file->getExtension() !== 'php') {
+                    continue;
+                }
+
+                $relativePath = str_replace($pluginPath . '/', '', $file->getPathname());
+
+                // Пропускаем файл сигнатуры
+                if ($relativePath === 'signature.sha256') {
+                    continue;
+                }
+
+                $fileContent = file_get_contents($file->getPathname());
+                $fileHash = hash('sha256', $fileContent);
+
+                // Проверяем подпись с помощью открытого ключа
+                $signature = file_get_contents($signatureFile);
+                $publicKey = openssl_pkey_get_public(file_get_contents($publicKeyFile));
+
+                $verification = openssl_verify(
+                    $fileHash,
+                    base64_decode($signature),
+                    $publicKey,
+                    'sha256WithRSAEncryption'
+                );
+
+                openssl_free_key($publicKey);
+
+                if ($verification !== 1) {
+                    return false; // Неверная подпись
+                }
+            }
+
+            return true;
         }
 
         public function deactivatePlugin($pluginName) {

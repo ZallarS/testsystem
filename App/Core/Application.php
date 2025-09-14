@@ -51,9 +51,14 @@
             error_log("Uncaught exception: " . $exception->getMessage());
 
             if ($this->isDevelopment()) {
-                echo "<h1>Error: " . htmlspecialchars($exception->getMessage(), ENT_QUOTES, 'UTF-8') . "</h1>";
-                echo "<p>File: " . htmlspecialchars($exception->getFile(), ENT_QUOTES, 'UTF-8') . ":" . $exception->getLine() . "</p>";
-                echo "<pre>" . htmlspecialchars($exception->getTraceAsString(), ENT_QUOTES, 'UTF-8') . "</pre>";
+                $message = htmlspecialchars($exception->getMessage(), ENT_QUOTES, 'UTF-8');
+                $file = htmlspecialchars($exception->getFile(), ENT_QUOTES, 'UTF-8');
+                $line = $exception->getLine();
+                $trace = htmlspecialchars($exception->getTraceAsString(), ENT_QUOTES, 'UTF-8');
+
+                echo "<h1>Error: " . $message . "</h1>";
+                echo "<p>File: " . $file . ":" . $line . "</p>";
+                echo "<pre>" . $trace . "</pre>";
             } else {
                 http_response_code(500);
                 echo "An error occurred. Please try again later.";

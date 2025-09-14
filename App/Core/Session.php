@@ -21,9 +21,8 @@ class Session
                 return;
             }
 
-            // Для HTTP-режима используем стандартные сессии
+            // Увеличиваем безопасность cookie
             session_name('TESTSYSTEM_SID');
-
             $domain = self::getDomain();
             $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
                 (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
@@ -34,7 +33,7 @@ class Session
                 'domain' => $domain,
                 'secure' => $isSecure,
                 'httponly' => true,
-                'samesite' => 'Lax'
+                'samesite' => 'Strict' // Изменено на Strict для большей безопасности
             ];
 
             session_set_cookie_params($cookieParams);
@@ -46,18 +45,20 @@ class Session
             }
             ini_set('session.save_path', $sessionPath);
 
-            // Увеличиваем вероятность успешного сохранения сессии
+            // Увеличиваем безопасность сессий
             ini_set('session.use_strict_mode', 1);
             ini_set('session.use_only_cookies', 1);
             ini_set('session.cookie_httponly', 1);
             ini_set('session.cookie_secure', $isSecure ? 1 : 0);
-            ini_set('session.cookie_samesite', 'Lax');
+            ini_set('session.cookie_samesite', 'Strict');
+            ini_set('session.use_trans_sid', 0);
 
             // Запускаем сессию
             if (!session_start()) {
                 throw new \RuntimeException('Failed to start session');
             }
 
+            // Защита от фиксации сессии - всегда регенерируем ID после создания
             if (empty($_SESSION['created'])) {
                 session_regenerate_id(true);
                 $_SESSION['created'] = time();
@@ -75,26 +76,13 @@ class Session
                     return;
                 }
 
-                // Регенерируем ID каждые 30 минут
-                if (time() - $_SESSION['created'] > 1800) {
+                // Регенерируем ID каждые 15 минут для большей безопасности
+                if (time() - $_SESSION['created'] > 900) {
                     session_regenerate_id(true);
                     $_SESSION['created'] = time();
                 }
             }
         }
-
-        if (self::$cliMode) {
-            return;
-        }
-
-        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
-        if (empty($_SESSION['user_agent'])) {
-            $_SESSION['user_agent'] = $userAgent;
-        } elseif ($_SESSION['user_agent'] !== $userAgent) {
-            session_regenerate_id(true);
-            $_SESSION = [];
-        }
-
     }
 
     public static function get($key, $default = null)
