@@ -37,8 +37,6 @@ class Session
                 'samesite' => 'Lax'
             ];
 
-            error_log("Session cookie params: " . print_r($cookieParams, true));
-
             session_set_cookie_params($cookieParams);
 
             // Устанавливаем путь сохранения сессий
@@ -83,8 +81,6 @@ class Session
                     $_SESSION['created'] = time();
                 }
             }
-
-            error_log("Session started with ID: " . session_id());
         }
 
         if (self::$cliMode) {

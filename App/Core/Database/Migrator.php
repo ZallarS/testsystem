@@ -134,6 +134,11 @@
                 throw new Exception("Класс $className не найден в миграционном файле: $migration");
             }
 
+            // Проверяем, что класс наследует базовый класс миграции
+            if (!is_subclass_of($className, 'App\Core\Database\Migration')) {
+                throw new Exception("Migration class $className must extend App\Core\Database\Migration");
+            }
+
             $instance = new $className();
 
             // Устанавливаем соединение для Schema
