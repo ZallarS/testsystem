@@ -63,6 +63,21 @@
             }
         }
 
+        public function getDependencies()
+        {
+            return []; // По умолчанию нет зависимостей
+        }
+
+        public function getConflicts()
+        {
+            return []; // По умолчанию нет конфликтов
+        }
+
+        public function getRequiredPermissions()
+        {
+            return []; // Права доступа, необходимые для работы плагина
+        }
+
         // Геттеры
         public function getName() {
             return $this->name;
