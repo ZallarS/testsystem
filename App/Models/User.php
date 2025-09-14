@@ -23,10 +23,10 @@
 
             try {
                 $stmt = $this->db->prepare("
-            SELECT roles.name FROM roles 
-            INNER JOIN role_user ON roles.id = role_user.role_id 
-            WHERE role_user.user_id = :user_id
-        ");
+                SELECT roles.name FROM roles 
+                INNER JOIN role_user ON roles.id = role_user.role_id 
+                WHERE role_user.user_id = :user_id");
+
                 $stmt->bindParam(':user_id', $this->id, PDO::PARAM_INT);
                 $stmt->execute();
 
@@ -125,10 +125,6 @@
             // Хеширование пароля
             $data['password'] = password_hash($data['password'], PASSWORD_DEFAULT);
 
-            // Устанавливаем роль по умолчанию
-            if (!isset($data['role'])) {
-                $data['role'] = self::ROLE_USER;
-            }
 
             return parent::create($data);
         }

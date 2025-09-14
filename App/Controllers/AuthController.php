@@ -24,7 +24,7 @@
             }
 
             return $this->view('auth/login', [
-                'title' => 'Login - My Application',
+                'title' => 'Авторизация',
                 'errors' => []
             ]);
         }
@@ -36,7 +36,7 @@
             }
 
             return $this->view('auth/register', [
-                'title' => 'Register - My Application',
+                'title' => 'Регистрация',
                 'errors' => []
             ]);
         }

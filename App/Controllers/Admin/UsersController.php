@@ -22,54 +22,48 @@
 
             return $this->view('admin/users/index', [
                 'users' => $users,
-                'title' => 'User Management'
+                'title' => 'Управление пользователями',
+                'activeMenu' => 'users'
             ]);
         }
 
         public function edit($id)
         {
-            // Проверяем, имеет ли текущий пользователь право редактировать этого пользователя
-            $currentUser = \App\Core\User::get();
-
-            // Администраторы могут редактировать любого пользователя
-            if (!\App\Core\User::isAdmin()) {
-                // Обычные пользователи могут редактировать только свой профиль
-                if ($currentUser['id'] != $id) {
-                    return Response::make('Access denied', 403);
-                }
-            }
-
             $user = $this->userModel->find($id);
 
             if (!$user) {
-                return Response::make('User not found', 404);
+                return Response::redirect('/admin/users?error=Пользователь не найден');
             }
 
             return $this->view('admin/users/edit', [
                 'user' => $user,
-                'title' => 'Edit User',
+                'title' => 'Редактирование пользователя',
+                'activeMenu' => 'users',
                 'roles' => ['user', 'moderator', 'admin']
             ]);
         }
 
-        public function update($id)
+        public function delete($id)
         {
-            try {
-                \App\Core\CSRF::validateToken($_POST['csrf_token'] ?? '');
-            } catch (\Exception $e) {
-                return Response::redirect('/admin/users?error=CSRF validation failed');
-            }
-
             $user = $this->userModel->find($id);
-            $allowedRoles = ['user', 'moderator', 'admin'];
-            $role = $_POST['role'] ?? $user['role'];
-
-            if (!in_array($role, $allowedRoles)) {
-                return Response::redirect('/admin/users?error=Invalid role');
-            }
 
             if (!$user) {
-                return Response::make('User not found', 404);
+                return Response::redirect('/admin/users?error=Пользователь не найден');
+            }
+
+            if ($this->userModel->delete($id)) {
+                return Response::redirect('/admin/users?message=Пользователь успешно удален');
+            } else {
+                return Response::redirect('/admin/users?error=Ошибка при удалении пользователя');
+            }
+        }
+
+        public function update($id)
+        {
+            $user = $this->userModel->find($id);
+
+            if (!$user) {
+                return Response::redirect('/admin/users?error=Пользователь не найден');
             }
 
             $data = [
@@ -79,9 +73,9 @@
             ];
 
             if ($this->userModel->update($id, $data)) {
-                return Response::redirect('/admin/users?message=User updated successfully');
+                return Response::redirect('/admin/users?message=Пользователь успешно обновлен');
             } else {
-                return Response::redirect('/admin/users/edit/' . $id . '?error=Failed to update user');
+                return Response::redirect('/admin/users/edit/' . $id . '?error=Ошибка при обновлении пользователя');
             }
         }
     }
