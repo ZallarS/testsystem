@@ -21,6 +21,7 @@ use App\Core\User;
         <?php endif; ?>
 
         <form action="/register" method="POST" class="auth-form">
+            <input type="hidden" name="csrf_token" value="<?= \App\Core\CSRF::generateToken() ?>">
             <div class="form-group">
                 <label for="name">Псевдоним</label>
                 <input type="text" id="name" name="name" value="<?= isset($name) ? htmlspecialchars($name) : '' ?>" required placeholder="Username123">
