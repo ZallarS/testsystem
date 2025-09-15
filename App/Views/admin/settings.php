@@ -1,15 +1,10 @@
-<?php
-
-?>
-<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
-    <h1 class="h2">Настройки системы</h1>
-</div>
-
 <div class="row">
     <div class="col-md-8">
         <div class="card">
             <div class="card-header">
-                <h5 class="card-title">Основные настройки</h5>
+                <h5 class="card-title">
+                    <i class="fas fa-cog me-2"></i>Основные настройки
+                </h5>
             </div>
             <div class="card-body">
                 <form>
@@ -33,7 +28,9 @@
                         <input class="form-check-input" type="checkbox" id="maintenanceMode">
                         <label class="form-check-label" for="maintenanceMode">Режим технического обслуживания</label>
                     </div>
-                    <button type="submit" class="btn btn-primary">Сохранить настройки</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i>Сохранить настройки
+                    </button>
                 </form>
             </div>
         </div>
@@ -42,7 +39,9 @@
     <div class="col-md-4">
         <div class="card">
             <div class="card-header">
-                <h5 class="card-title">Информация о системе</h5>
+                <h5 class="card-title">
+                    <i class="fas fa-info-circle me-2"></i>Информация о системе
+                </h5>
             </div>
             <div class="card-body">
                 <ul class="list-group list-group-flush">
@@ -68,16 +67,18 @@
 
         <div class="card mt-4">
             <div class="card-header bg-danger text-white">
-                <h5 class="card-title">Опасная зона</h5>
+                <h5 class="card-title">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Опасная зона
+                </h5>
             </div>
             <div class="card-body">
                 <p class="card-text">Эти действия нельзя отменить. Будьте осторожны.</p>
                 <div class="d-grid gap-2">
                     <button class="btn btn-outline-danger" type="button">
-                        <i class="bi bi-trash"></i> Очистить кеш
+                        <i class="fas fa-trash me-2"></i> Очистить кеш
                     </button>
                     <button class="btn btn-outline-danger" type="button">
-                        <i class="bi bi-database"></i> Очистить логи
+                        <i class="fas fa-database me-2"></i> Очистить логи
                     </button>
                 </div>
             </div>

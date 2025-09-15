@@ -1,21 +1,9 @@
-<?php
-
-?>
-<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
-    <h1 class="h2">Панель управления</h1>
-    <div class="btn-toolbar mb-2 mb-md-0">
-        <div class="btn-group me-2">
-            <button type="button" class="btn btn-sm btn-outline-secondary">Экспорт</button>
-        </div>
-    </div>
-</div>
-
 <!-- Статистика -->
 <div class="row mb-4">
     <div class="col-md-3">
         <div class="card stat-card text-center">
             <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-people text-primary"></i></h5>
+                <h5 class="card-title"><i class="fas fa-users text-primary"></i></h5>
                 <h3 class="card-text"><?= $stats['totalUsers'] ?></h3>
                 <p class="text-muted">Всего пользователей</p>
             </div>
@@ -24,7 +12,7 @@
     <div class="col-md-3">
         <div class="card stat-card text-center">
             <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-person-check text-success"></i></h5>
+                <h5 class="card-title"><i class="fas fa-user-check text-success"></i></h5>
                 <h3 class="card-text"><?= $stats['activeUsers'] ?></h3>
                 <p class="text-muted">Активных пользователей</p>
             </div>
@@ -33,7 +21,7 @@
     <div class="col-md-3">
         <div class="card stat-card text-center">
             <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-plug text-warning"></i></h5>
+                <h5 class="card-title"><i class="fas fa-plug text-warning"></i></h5>
                 <h3 class="card-text"><?= $stats['totalPlugins'] ?></h3>
                 <p class="text-muted">Всего плагинов</p>
             </div>
@@ -42,7 +30,7 @@
     <div class="col-md-3">
         <div class="card stat-card text-center">
             <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-power text-danger"></i></h5>
+                <h5 class="card-title"><i class="fas fa-power-off text-danger"></i></h5>
                 <h3 class="card-text"><?= $stats['activePlugins'] ?></h3>
                 <p class="text-muted">Активных плагинов</p>
             </div>
@@ -55,7 +43,9 @@
     <div class="col-md-6">
         <div class="card">
             <div class="card-header">
-                <h5 class="card-title">Последние пользователи</h5>
+                <h5 class="card-title">
+                    <i class="fas fa-users me-2"></i>Последние пользователи
+                </h5>
             </div>
             <div class="card-body">
                 <div class="table-responsive">
@@ -92,7 +82,9 @@
                         </tbody>
                     </table>
                 </div>
-                <a href="/admin/users" class="btn btn-sm btn-outline-primary">Все пользователи</a>
+                <a href="/admin/users" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-eye me-1"></i>Все пользователи
+                </a>
             </div>
         </div>
     </div>
@@ -101,18 +93,20 @@
     <div class="col-md-6">
         <div class="card">
             <div class="card-header">
-                <h5 class="card-title">Быстрые действия</h5>
+                <h5 class="card-title">
+                    <i class="fas fa-bolt me-2"></i>Быстрые действия
+                </h5>
             </div>
             <div class="card-body">
                 <div class="d-grid gap-2">
-                    <a href="/admin/users" class="btn btn-outline-primary btn-block">
-                        <i class="bi bi-people"></i> Управление пользователями
+                    <a href="/admin/users" class="btn btn-outline-primary">
+                        <i class="fas fa-users me-2"></i> Управление пользователями
                     </a>
-                    <a href="/admin/plugins" class="btn btn-outline-success btn-block">
-                        <i class="bi bi-plug"></i> Управление плагинами
+                    <a href="/admin/plugins" class="btn btn-outline-success">
+                        <i class="fas fa-plug me-2"></i> Управление плагинами
                     </a>
-                    <a href="/admin/settings" class="btn btn-outline-secondary btn-block">
-                        <i class="bi bi-gear"></i> Настройки системы
+                    <a href="/admin/settings" class="btn btn-outline-secondary">
+                        <i class="fas fa-cog me-2"></i> Настройки системы
                     </a>
                 </div>
             </div>
@@ -121,7 +115,9 @@
         <!-- Статус системы -->
         <div class="card mt-4">
             <div class="card-header">
-                <h5 class="card-title">Статус системы</h5>
+                <h5 class="card-title">
+                    <i class="fas fa-server me-2"></i>Статус системы
+                </h5>
             </div>
             <div class="card-body">
                 <div class="mb-2">
