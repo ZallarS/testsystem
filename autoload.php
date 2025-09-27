@@ -5,7 +5,6 @@
     spl_autoload_register(function ($class) {
         $prefixes = [
             'App\\' => __DIR__ . '/App/',
-            'Plugins\\' => PLUGINS_PATH,
         ];
 
         foreach ($prefixes as $prefix => $baseDir) {
@@ -28,7 +27,6 @@
     define('BASE_PATH', realpath(__DIR__));
     define('APP_PATH', BASE_PATH . '/App/');
     define('CORE_PATH', APP_PATH . 'Core/');
-    define('PLUGINS_PATH', BASE_PATH . '/Plugins/');
     define('STORAGE_PATH', BASE_PATH . '/storage/');
     define('VIEWS_PATH', APP_PATH . 'Views/');
     define('DATABASE_PATH', BASE_PATH . '/database/');
@@ -36,7 +34,7 @@
     define('SEEDS_PATH', DATABASE_PATH . 'seeds/');
 
     // Создаем необходимые директории, если они не существуют
-    $directories = [STORAGE_PATH, PLUGINS_PATH];
+    $directories = [STORAGE_PATH];
     foreach ($directories as $directory) {
         if (!is_dir($directory)) {
             mkdir($directory, 0755, true);

@@ -14,13 +14,22 @@
             self::$db = $db;
         }
 
-        public static function create($table, Closure $callback)
+        public static function create($table, \Closure $callback)
         {
             $blueprint = new Blueprint($table);
             $callback($blueprint);
 
             $sql = $blueprint->toSql();
-            self::$db->exec($sql);
+
+            try {
+                self::$db->exec($sql);
+            } catch (\Exception $e) {
+                // Если таблица уже существует, просто игнорируем ошибку
+                if (strpos($e->getMessage(), 'already exists') !== false) {
+                    return;
+                }
+                throw $e;
+            }
         }
 
         public static function table($table, Closure $callback)

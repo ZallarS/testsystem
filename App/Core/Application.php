@@ -6,7 +6,6 @@
     {
         private $container;
         private $router;
-        private $pluginManager;
 
         private static $instance;
 
@@ -16,7 +15,6 @@
             $this->initializeErrorHandling();
             $this->initializeContainer();
             $this->initializeRouter();
-            $this->initializePluginManager();
         }
 
         private function initializeErrorHandling()
@@ -78,34 +76,11 @@
             $this->container->set('router', $this->router);
         }
 
-        private function initializePluginManager()
-        {
-            $this->pluginManager = new PluginManager($this->container);
-            $this->container->set('plugin_manager', $this->pluginManager);
-
-            // Добавляем проверку
-            if (!$this->container->has('plugin_manager')) {
-                throw new \Exception('Failed to register PluginManager in container');
-            }
-        }
-
         public function boot()
         {
             // Добавляем SessionMiddleware глобально
             $this->router->middleware([new \App\Middleware\SessionMiddleware()]);
             $this->router->middleware([new \App\Middleware\VerifyCsrfToken()]);
-
-            // Загружаем активные плагины
-            $this->pluginManager->bootActivePlugins();
-
-            // Регистрируем сервисы плагинов
-            $this->pluginManager->registerActivePluginServices($this->container);
-
-            // Регистрируем маршруты плагинов
-            $this->pluginManager->registerActivePluginRoutes($this->router);
-
-            // Регистрируем хуки плагинов
-            $this->pluginManager->registerActivePluginHooks();
 
             // Регистрируем основные маршруты приложения
             $this->registerRoutes();
@@ -129,23 +104,6 @@
                 require $apiRoutesFile;
             }
 
-            // Загружаем маршруты из плагинов
-            $this->loadPluginRoutes();
-        }
-
-        private function loadPluginRoutes()
-        {
-            $pluginManager = $this->container->get('plugin_manager');
-            $activePlugins = $pluginManager->getActivePlugins();
-
-            foreach ($activePlugins as $pluginName => $plugin) {
-                $pluginRoutesFile = PLUGINS_PATH . $pluginName . '/routes.php';
-                if (file_exists($pluginRoutesFile)) {
-                    // Делаем $router доступной в файле маршрутов плагина
-                    $router = $this->router;
-                    require $pluginRoutesFile;
-                }
-            }
         }
 
         public function run()
@@ -180,17 +138,5 @@
             }
         }
 
-        private function showDebugInfo()
-        {
-            echo "<h1>Registered Routes:</h1>";
-            echo "<pre>";
-            print_r($this->router->getRoutes());
-            echo "</pre>";
-
-            echo "<h1>Active Plugins:</h1>";
-            echo "<pre>";
-            print_r($this->pluginManager->getActivePlugins());
-            echo "</pre>";
-        }
 
     }

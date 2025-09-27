@@ -54,4 +54,14 @@
 
             return rmdir($directory);
         }
+
+        public static function camelCase($string)
+        {
+            return str_replace(' ', '', ucwords(str_replace('_', ' ', $string)));
+        }
+
+        public static function snakeCase($string)
+        {
+            return strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', $string));
+        }
     }

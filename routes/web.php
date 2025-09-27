@@ -3,7 +3,6 @@
     use App\Core\Response;
     use App\Controllers\AuthController;
     use App\Controllers\Admin\AdminController;
-    use App\Controllers\Admin\PluginsController;
     use App\Controllers\Admin\UsersController;
     use App\Middleware\AuthMiddleware;
     use App\Middleware\RoleMiddleware;
@@ -37,7 +36,6 @@
 
     });
 
-    // Маршруты управления плагинами
     $router->group('/admin', function() use ($router) {
         $router->get('', [AdminController::class, 'dashboard']);
         $router->get('/settings', [AdminController::class, 'settings']);
@@ -49,12 +47,4 @@
         $router->post('/users/delete/{id}', [UsersController::class, 'delete']);
         $router->get('/users/create', [UsersController::class, 'create']);
         $router->post('/users/store', [UsersController::class, 'store']);
-    }, ['middleware' => [AuthMiddleware::class, new RoleMiddleware('admin')]]);
-
-    // Маршруты управления плагинами
-    $router->group('/admin/plugins', function() use ($router) {
-        $router->get('', ['App\Controllers\Admin\PluginsController', 'index']);
-        $router->get('/activate/{pluginName}', ['App\Controllers\Admin\PluginsController', 'activate']);
-        $router->get('/deactivate/{pluginName}', ['App\Controllers\Admin\PluginsController', 'deactivate']);
-        $router->get('/details/{pluginName}', ['App\Controllers\Admin\PluginsController', 'details']);
     }, ['middleware' => [AuthMiddleware::class, new RoleMiddleware('admin')]]);

@@ -4,7 +4,6 @@
 
     class Controller {
         protected $container;
-        protected $pluginViewsPath = null;
 
         public function __construct(Container $container = null) {
             $this->container = $container;
@@ -14,14 +13,9 @@
             // Извлекаем данные в переменные
             extract($data);
 
-            // Определяем путь к файлу представления
-            if ($this->pluginViewsPath) {
-                // Используем путь плагина, если он установлен
-                $viewFile = $this->pluginViewsPath . $viewPath . '.php';
-            } else {
-                // Используем стандартный путь приложения
-                $viewFile = VIEWS_PATH . $viewPath . '.php';
-            }
+            // Используем стандартный путь приложения
+            $viewFile = VIEWS_PATH . $viewPath . '.php';
+
 
             // Проверяем существование файла
             if (!file_exists($viewFile)) {

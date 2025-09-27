@@ -14,7 +14,7 @@ use App\Core\User;
                 <p>Пожалуйста, исправьте следующие ошибки:</p>
                 <ul>
                     <?php foreach ($errors as $error): ?>
-                        <li><?= htmlspecialchars($error) ?></li>
+                        <li style="color: #e74c3c"><?= htmlspecialchars($error) ?></li>
                     <?php endforeach; ?>
                 </ul>
             </div>

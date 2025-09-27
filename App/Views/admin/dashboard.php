@@ -18,24 +18,6 @@
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card stat-card text-center">
-            <div class="card-body">
-                <h5 class="card-title"><i class="fas fa-plug text-warning"></i></h5>
-                <h3 class="card-text"><?= $stats['totalPlugins'] ?></h3>
-                <p class="text-muted">Всего плагинов</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card stat-card text-center">
-            <div class="card-body">
-                <h5 class="card-title"><i class="fas fa-power-off text-danger"></i></h5>
-                <h3 class="card-text"><?= $stats['activePlugins'] ?></h3>
-                <p class="text-muted">Активных плагинов</p>
-            </div>
-        </div>
-    </div>
 </div>
 
 <div class="row">
@@ -101,9 +83,6 @@
                 <div class="d-grid gap-2">
                     <a href="/admin/users" class="btn btn-outline-primary">
                         <i class="fas fa-users me-2"></i> Управление пользователями
-                    </a>
-                    <a href="/admin/plugins" class="btn btn-outline-success">
-                        <i class="fas fa-plug me-2"></i> Управление плагинами
                     </a>
                     <a href="/admin/settings" class="btn btn-outline-secondary">
                         <i class="fas fa-cog me-2"></i> Настройки системы

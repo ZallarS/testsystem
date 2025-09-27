@@ -2,8 +2,6 @@
 
     namespace App\Core\Database;
 
-    use App\Core\Database\Connection;
-
     abstract class Seeder
     {
         protected $db;
@@ -15,9 +13,20 @@
 
         abstract public function run();
 
-        public function call($seederClass)
+        protected function call($seederClass)
         {
-            require_once SEEDS_PATH . $seederClass . '.php';
+            $seederFile = SEEDS_PATH . $seederClass . '.php';
+
+            if (!file_exists($seederFile)) {
+                throw new \Exception("Seeder file not found: $seederFile");
+            }
+
+            require_once $seederFile;
+
+            if (!class_exists($seederClass)) {
+                throw new \Exception("Seeder class not found: $seederClass");
+            }
+
             $seeder = new $seederClass();
             $seeder->run();
         }

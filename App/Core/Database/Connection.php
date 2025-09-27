@@ -45,17 +45,24 @@
 
         private function loadConfig()
         {
-            // Проверяем, загружены ли переменные окружения
-            if (empty($_ENV['DB_HOST'])) {
-                $this->loadEnv();
+            // Сначала загружаем .env
+            $this->loadEnv();
+
+            // Затем пытаемся загрузить из config/database.php
+            $configPath = BASE_PATH . '/config/database.php';
+            $configFromFile = [];
+
+            if (file_exists($configPath)) {
+                $configFromFile = require $configPath;
             }
 
+            // Приоритет: .env > config file > defaults
             return [
-                'host' => $_ENV['DB_HOST'] ?? 'localhost',
-                'database' => $_ENV['DB_DATABASE'] ?? 'test_system',
-                'username' => $_ENV['DB_USERNAME'] ?? 'root',
-                'password' => $_ENV['DB_PASSWORD'] ?? '',
-                'charset' => 'utf8mb4',
+                'host' => $_ENV['DB_HOST'] ?? $configFromFile['host'] ?? 'localhost',
+                'database' => $_ENV['DB_DATABASE'] ?? $configFromFile['database'] ?? 'test_system',
+                'username' => $_ENV['DB_USERNAME'] ?? $configFromFile['username'] ?? 'root',
+                'password' => $_ENV['DB_PASSWORD'] ?? $configFromFile['password'] ?? '',
+                'charset' => $configFromFile['charset'] ?? 'utf8mb4',
             ];
         }
 

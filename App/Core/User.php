@@ -169,7 +169,7 @@
             // Маппинг ролей к разрешениям
             $permissions = [
                 'user' => ['view_profile', 'edit_profile'],
-                'admin' => ['manage_plugins', 'manage_settings', 'manage_all']
+                'admin' => ['manage_all']
             ];
 
             // Администраторы имеют все разрешения

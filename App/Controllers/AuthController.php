@@ -5,6 +5,7 @@
     use App\Core\Controller;
     use App\Core\Response;
     use App\Core\User;
+    use App\Core\Validator;
     use App\Models\User as UserModel;
 
     class AuthController extends Controller
@@ -114,9 +115,6 @@
 
         public function processRegister()
         {
-            $authService = new \App\Services\AuthService();
-            $result = $authService->register($_POST['name'], $_POST['email'], $_POST['password']);
-
             $name = $_POST['name'] ?? '';
             $email = $_POST['email'] ?? '';
             $password = $_POST['password'] ?? '';
@@ -143,18 +141,29 @@
                 'password' => $hashedPassword
             ];
 
-            if ($this->userModel->create($userData)) {
-                // Автоматический вход после регистрации
-                $user = $this->userModel->findByEmail($email);
+            try {
+                if ($this->userModel->create($userData)) {
+                    // Автоматический вход после регистрации
+                    $user = $this->userModel->findByEmail($email);
 
-                User::login([
-                    'id' => $user['id'],
-                    'email' => $user['email'],
-                    'name' => $user['name']
-                ]);
+                    if ($user) {
+                        User::login([
+                            'id' => $user['id'],
+                            'email' => $user['email'],
+                            'name' => $user['name'],
+                            'roles' => ['user'] // Роль по умолчанию для нового пользователя
+                        ]);
 
-                return Response::redirect('/');
-            } else {
+                        return Response::redirect('/');
+                    } else {
+                        throw new \Exception('Failed to find created user');
+                    }
+                } else {
+                    throw new \Exception('Failed to create user');
+                }
+            } catch (\Exception $e) {
+                error_log("Registration error: " . $e->getMessage());
+
                 $errors[] = 'Registration failed. Please try again.';
                 return $this->view('auth/register', [
                     'errors' => $errors,
@@ -176,11 +185,11 @@
             $errors = [];
 
             if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                $errors[] = 'Please enter a valid email address';
+                $errors[] = 'Пожалуйста, введите действительный адрес электронной почты';
             }
 
             if (empty($password)) {
-                $errors[] = 'Please enter your password';
+                $errors[] = 'Пожалуйста, введите свой пароль';
             }
 
             return $errors;
@@ -191,42 +200,48 @@
             $errors = [];
 
             // Более строгая проверка пароля
-            if (strlen($password) < 10) {
-                $errors[] = 'Password must be at least 10 characters';
+            if (strlen($password) < 8 ){
+                $errors[] = 'Пароль должен содержать не менне 8 символов';
             }
 
             if (!preg_match('/[A-Z]/', $password)) {
-                $errors[] = 'Password must contain at least one uppercase letter';
+                $errors[] = 'Пароль должен содержать хотя бы одну заглавную букву';
             }
 
             if (!preg_match('/[a-z]/', $password)) {
-                $errors[] = 'Password must contain at least one lowercase letter';
+                $errors[] = 'Пароль должен содержать хотя бы одну строчную букву';
             }
 
             if (!preg_match('/[0-9]/', $password)) {
-                $errors[] = 'Password must contain at least one number';
+                $errors[] = 'Пароль должен содержать хотя бы одну цифру';
             }
 
             if (!preg_match('/[^A-Za-z0-9]/', $password)) {
-                $errors[] = 'Password must contain at least one special character';
+                $errors[] = 'Пароль должен содержать хотя бы один специальный символ';
             }
 
             if (!Validator::string($name, 2, 50)) {
-                $errors[] = 'Name must be between 2 and 50 characters';
+                $errors[] = 'Длина имени должна составлять от 2 до 50 символов';
             }
 
             if (!Validator::email($email)) {
-                $errors[] = 'Valid email is required';
+                $errors[] = 'Требуется указать действительный адрес электронной почты';
+            } else {
+                // Проверяем, не существует ли уже пользователь с таким email
+                $existingUser = $this->userModel->findByEmail($email);
+                if ($existingUser) {
+                    $errors[] = 'Пользователь с таким адресом электронной почты уже существует';
+                }
             }
 
             if ($password !== $confirmPassword) {
-                $errors[] = 'Passwords do not match';
+                $errors[] = 'Пароли не совпадают';
             }
 
             // Проверка на распространённые пароли
-            $commonPasswords = ['password', '123456', 'qwerty', 'letmein'];
+            $commonPasswords = ['password', '12345678'];
             if (in_array(strtolower($password), $commonPasswords)) {
-                $errors[] = 'Password is too common';
+                $errors[] = 'Пароль слишком простой';
             }
 
             return $errors;

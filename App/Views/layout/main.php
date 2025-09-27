@@ -57,11 +57,6 @@ use App\Core\User;
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link <?= ($activeMenu ?? '') === 'plugins' ? 'active' : '' ?>" href="/admin/plugins">
-                        <i class="bi bi-plug"></i> Плагины
-                    </a>
-                </li>
-                <li class="nav-item">
                     <a class="nav-link <?= ($activeMenu ?? '') === 'settings' ? 'active' : '' ?>" href="/admin/settings">
                         <i class="bi bi-gear"></i> Настройки
                     </a>
@@ -92,11 +87,6 @@ use App\Core\User;
                 <li class="nav-item">
                     <a class="nav-link <?= ($activeMenu ?? '') === 'users' ? 'active' : '' ?>" href="/admin/users">
                         <i class="bi bi-people"></i> Пользователи
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link <?= ($activeMenu ?? '') === 'plugins' ? 'active' : '' ?>" href="/admin/plugins">
-                        <i class="bi bi-plug"></i> Плагины
                     </a>
                 </li>
                 <li class="nav-item">
