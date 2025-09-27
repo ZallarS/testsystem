@@ -1,24 +1,3 @@
-<!-- Статистика -->
-<div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card stat-card text-center">
-            <div class="card-body">
-                <h5 class="card-title"><i class="fas fa-users text-primary"></i></h5>
-                <h3 class="card-text"><?= $stats['totalUsers'] ?></h3>
-                <p class="text-muted">Всего пользователей</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card stat-card text-center">
-            <div class="card-body">
-                <h5 class="card-title"><i class="fas fa-user-check text-success"></i></h5>
-                <h3 class="card-text"><?= $stats['activeUsers'] ?></h3>
-                <p class="text-muted">Активных пользователей</p>
-            </div>
-        </div>
-    </div>
-</div>
 
 <div class="row">
     <!-- Последние пользователи -->
