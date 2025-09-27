@@ -12,8 +12,8 @@ class UsersTableSeeder extends Seeder
         $adminData = [
             'name' => 'Administrator',
             'email' => 'admin@example.com',
-            'password' => password_hash('SecurePassword123!', PASSWORD_DEFAULT),
-            'created_at' => date('Y-m-d H:i:s')
+            'password' => password_hash('SecurePassword123!', PASSWORD_DEFAULT)
+            // created_at и updated_at добавятся автоматически через DEFAULT VALUES
         ];
 
         $existingAdmin = (new User())->findByEmail($adminData['email']);
@@ -36,8 +36,7 @@ class UsersTableSeeder extends Seeder
         $userData = [
             'name' => 'Test User',
             'email' => 'user@example.com',
-            'password' => password_hash('UserPassword123!', PASSWORD_DEFAULT),
-            'created_at' => date('Y-m-d H:i:s')
+            'password' => password_hash('UserPassword123!', PASSWORD_DEFAULT)
         ];
 
         $existingUser = (new User())->findByEmail($userData['email']);

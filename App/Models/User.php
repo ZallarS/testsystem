@@ -43,7 +43,11 @@
             $stmt = $this->db->prepare("SELECT * FROM {$this->table} WHERE email = :email");
             $stmt->bindParam(':email', $email, PDO::PARAM_STR);
             $stmt->execute();
-            return $stmt->fetch(PDO::FETCH_ASSOC);
+
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            error_log("findByEmail result for $email: " . ($result ? 'found' : 'not found'));
+
+            return $result;
         }
 
         public function hasRole($roleName)

@@ -24,7 +24,11 @@ class RolesTableSeeder extends Seeder
 
             if (!$existingRole) {
                 $role = new Role();
-                $role->create($roleData);
+                // Передаем только name и description - created_at/updated_at добавятся автоматически
+                $role->create([
+                    'name' => $roleData['name'],
+                    'description' => $roleData['description']
+                ]);
                 error_log("Created role: " . $roleData['name']);
             } else {
                 error_log("Role already exists: " . $roleData['name']);

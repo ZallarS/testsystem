@@ -50,6 +50,7 @@
             $password = $_POST['password'] ?? '';
 
             error_log("Login attempt for email: $email");
+            error_log("Password length: " . strlen($password));
 
             // Валидация
             $errors = $this->validateLogin($email, $password);
@@ -67,7 +68,39 @@
             // Поиск пользователя в базе данных
             $user = $this->userModel->findByEmail($email);
 
-            if (!$user || !password_verify($password, $user['password'])) {
+            if (!$user) {
+                error_log("User not found for email: $email");
+                return $this->view('auth/login', [
+                    'error' => 'Invalid email or password',
+                    'email' => $email,
+                    'title' => 'Login - My Application'
+                ]);
+            }
+
+            error_log("User found: " . $user['id']);
+            error_log("Stored password hash: " . $user['password']);
+            error_log("Stored password hash length: " . strlen($user['password']));
+
+            // Проверяем пароль
+            $passwordValid = password_verify($password, $user['password']);
+            error_log("Password verification result: " . ($passwordValid ? 'true' : 'false'));
+
+            if (!$passwordValid) {
+                error_log("Password verification failed");
+                error_log("Input password: $password");
+
+                // Дополнительная проверка - возможно пароль хранится в plain text
+                if ($user['password'] === $password) {
+                    error_log("WARNING: Password appears to be stored in plain text!");
+                    // Если пароль в plain text, хэшируем его и обновляем в базе
+                    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+                    $this->userModel->update($user['id'], ['password' => $hashedPassword]);
+                    error_log("Password has been hashed and updated in database");
+                    $passwordValid = true;
+                }
+            }
+
+            if (!$user || !$passwordValid) {
                 error_log("Invalid credentials for email: $email");
                 return $this->view('auth/login', [
                     'error' => 'Invalid email or password',
