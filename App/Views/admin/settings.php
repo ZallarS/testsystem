@@ -13,10 +13,6 @@
                         <input type="text" class="form-control" id="siteName" value="Система тестирований">
                     </div>
                     <div class="mb-3">
-                        <label for="adminEmail" class="form-label">Email администратора</label>
-                        <input type="email" class="form-control" id="adminEmail" value="admin@example.com">
-                    </div>
-                    <div class="mb-3">
                         <label for="timezone" class="form-label">Часовой пояс</label>
                         <select class="form-select" id="timezone">
                             <option value="Europe/Moscow" selected>Europe/Moscow (Москва)</option>
