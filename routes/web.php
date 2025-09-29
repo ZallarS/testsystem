@@ -10,7 +10,8 @@
     // Главная страница
     $router->get('/', function() {
         return Response::view('home/index', [
-            'title' => 'Home - My Application'
+            'title' => \App\Core\User::isLoggedIn() ? 'Главная - MyApp' : 'MyApp - Добро пожаловать',
+            'activeMenu' => 'home'
         ]);
     });
 
@@ -36,6 +37,19 @@
 
     });
 
+    // Профиль пользователя (для обычных пользователей)
+    $router->get('/profile', function() {
+        if (!\App\Core\User::isLoggedIn()) {
+            return Response::redirect('/login');
+        }
+
+        return Response::view('profile/index', [
+            'title' => 'Личный кабинет',
+            'activeMenu' => 'profile'
+        ]);
+    })->middleware([AuthMiddleware::class]);
+
+    // Административная группа
     $router->group('/admin', function() use ($router) {
         $router->get('', [AdminController::class, 'dashboard']);
         $router->get('/settings', [AdminController::class, 'settings']);
