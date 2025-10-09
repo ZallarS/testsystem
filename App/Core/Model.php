@@ -50,6 +50,29 @@
             return $stmt->execute();
         }
 
+        protected function cachedQuery($key, $callback, $ttl = 3600)
+        {
+            $cached = \App\Core\Cache::get($key);
+
+            if ($cached !== null) {
+                return $cached;
+            }
+
+            $result = $callback();
+            \App\Core\Cache::set($key, $result, $ttl);
+
+            return $result;
+        }
+
+        public function allCached($ttl = 3600)
+        {
+            return $this->cachedQuery(
+                "model_{$this->table}_all",
+                function() { return $this->all(); },
+                $ttl
+            );
+        }
+
         public function update($id, array $data)
         {
             if (!is_numeric($id)) {

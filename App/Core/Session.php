@@ -85,6 +85,13 @@ class Session
         }
     }
 
+    public static function regenerate()
+    {
+        if (!self::$cliMode && session_status() === PHP_SESSION_ACTIVE) {
+            session_regenerate_id(true);
+        }
+    }
+
     public static function get($key, $default = null)
     {
         self::start();

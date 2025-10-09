@@ -9,28 +9,37 @@
             $this->container = $container;
         }
 
-        protected function view($viewPath, $data = []) {
+        protected function view($viewPath, $data = [])
+        {
             // Извлекаем данные в переменные
             extract($data);
 
             // Используем стандартный путь приложения
             $viewFile = VIEWS_PATH . $viewPath . '.php';
 
-
             // Проверяем существование файла
             if (!file_exists($viewFile)) {
                 throw new \Exception("View file not found: " . $viewFile);
             }
 
+            // Буферизуем вывод view
+            ob_start();
+            require $viewFile;
+            $content = ob_get_clean();
+
             // Используем основной layout
             $layoutFile = VIEWS_PATH . 'layout/main.php';
-            $content = $viewFile;
 
             if (file_exists($layoutFile)) {
+                // Рендерим layout с содержимым view
+                ob_start();
                 require $layoutFile;
+                $finalContent = ob_get_clean();
+
+                return new \App\Core\Response($finalContent);
             } else {
                 // Если layout не существует, загружаем только view
-                require $viewFile;
+                return new \App\Core\Response($content);
             }
         }
 

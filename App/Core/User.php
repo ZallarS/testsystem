@@ -26,26 +26,22 @@
         public static function login($userData)
         {
             self::initSession();
+            \App\Core\Session::regenerate(); // Регенерируем сессию
 
-            // Сохраняем роли в сессии
             $sessionUserData = [
                 'id' => $userData['id'],
                 'email' => $userData['email'],
                 'name' => $userData['name'],
                 'roles' => $userData['roles'],
-                'roles_updated' => time()
+                'login_time' => time(),
+                'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown'
             ];
 
-            // Регенерируем ID сессии после аутентификации
-            session_regenerate_id(true);
+            \App\Core\Session::set('user', $sessionUserData);
 
-            if (\App\Core\Session::status() === PHP_SESSION_ACTIVE) {
-                \App\Core\Session::set('user', $sessionUserData);
-
-                // Добавим логирование для отладки
-                error_log("User data saved to session: " . print_r($sessionUserData, true));
-            } else {
-                error_log("Cannot save user data: session is not active");
+            // Дополнительная проверка
+            if (!\App\Core\Session::get('user')) {
+                throw new \RuntimeException('Failed to save user data in session');
             }
         }
 

@@ -20,24 +20,24 @@
 
         public function login()
         {
-            if (User::isLoggedIn()) {
-                return Response::redirect('/');
+            if (\App\Core\User::isLoggedIn()) {
+                return \App\Core\Response::redirect('/');
             }
 
             return $this->view('auth/login', [
-                'title' => 'Авторизация',
+                'title' => 'Авторизация - My Application',
                 'errors' => []
             ]);
         }
 
         public function register()
         {
-            if (User::isLoggedIn()) {
-                return Response::redirect('/');
+            if (\App\Core\User::isLoggedIn()) {
+                return \App\Core\Response::redirect('/');
             }
 
             return $this->view('auth/register', [
-                'title' => 'Регистрация',
+                'title' => 'Регистрация - My Application',
                 'errors' => []
             ]);
         }

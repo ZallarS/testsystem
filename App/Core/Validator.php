@@ -13,6 +13,35 @@
             return $length >= $min && $length <= $max;
         }
 
+        public static function validate(array $data, array $rules)
+        {
+            $errors = [];
+
+            foreach ($rules as $field => $ruleSet) {
+                $rules = explode('|', $ruleSet);
+                $value = $data[$field] ?? null;
+
+                foreach ($rules as $rule) {
+                    if ($rule === 'required' && empty($value)) {
+                        $errors[$field][] = "Поле {$field} обязательно для заполнения";
+                    }
+
+                    if (strpos($rule, 'min:') === 0) {
+                        $min = (int) str_replace('min:', '', $rule);
+                        if (strlen($value) < $min) {
+                            $errors[$field][] = "Поле {$field} должно содержать минимум {$min} символов";
+                        }
+                    }
+
+                    if ($rule === 'email' && !self::email($value)) {
+                        $errors[$field][] = "Поле {$field} должно содержать valid email";
+                    }
+                }
+            }
+
+            return $errors;
+        }
+
         public static function email($value)
         {
             return filter_var($value, FILTER_VALIDATE_EMAIL) !== false;

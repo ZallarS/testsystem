@@ -24,12 +24,34 @@
 
         public static function view($viewPath, $data = [], $statusCode = 200, $headers = [])
         {
+            $viewFile = VIEWS_PATH . $viewPath . '.php';
+
+            if (!file_exists($viewFile)) {
+                throw new \Exception("View file not found: " . $viewFile);
+            }
+
+            // Извлекаем данные в переменные
             extract($data);
+
+            // Буферизуем вывод view
             ob_start();
-            include VIEWS_PATH . $viewPath . '.php';
+            include $viewFile;
             $content = ob_get_clean();
 
-            return new self($content, $statusCode, $headers);
+            // Используем layout
+            $layoutFile = VIEWS_PATH . 'layout/main.php';
+
+            if (file_exists($layoutFile)) {
+                // Рендерим layout с содержимым view
+                ob_start();
+                include $layoutFile;
+                $finalContent = ob_get_clean();
+
+                return new self($finalContent, $statusCode, $headers);
+            } else {
+                // Если layout не существует, загружаем только view
+                return new self($content, $statusCode, $headers);
+            }
         }
 
         public static function redirect($url, $statusCode = 303)
