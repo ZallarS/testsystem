@@ -22,15 +22,23 @@ class ErrorHandler
     {
         http_response_code(500);
 
+        $errorId = uniqid('err_', true);
+        $errorMessage = $exception->getMessage();
+
+        // Логируем с дополнительной информацией
+        error_log("Error ID: {$errorId} - " . $exception->getMessage());
+        error_log("File: " . $exception->getFile() . ":" . $exception->getLine());
+        error_log("Stack trace: " . $exception->getTraceAsString());
+
         if ($_ENV['APP_ENV'] === 'production') {
-            // Логируем и показываем общую ошибку
-            error_log("Uncaught exception: " . $exception->getMessage());
+            // НЕ показываем ID ошибки в production
+            error_log("Production error: " . $exception->getMessage());
             echo "Произошла ошибка. Пожалуйста, попробуйте позже.";
         } else {
             // Детальная информация для разработки
-            echo "<h1>Error: " . $exception->getMessage() . "</h1>";
-            echo "<p>File: " . $exception->getFile() . ":" . $exception->getLine() . "</p>";
-            echo "<pre>" . $exception->getTraceAsString() . "</pre>";
+            echo "<h1>Error: " . htmlspecialchars($errorMessage) . "</h1>";
+            echo "<p>File: " . htmlspecialchars($exception->getFile()) . ":" . $exception->getLine() . "</p>";
+            echo "<pre>" . htmlspecialchars($exception->getTraceAsString()) . "</pre>";
         }
 
         exit(1);

@@ -45,17 +45,21 @@
             return $escaped;
         }
 
-        public function e($value)
+        public function e($value, $context = 'html')
         {
-            if (is_array($value)) {
-                return array_map([$this, 'e'], $value);
+            switch ($context) {
+                case 'html':
+                    return htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8', false);
+                case 'attr':
+                    return htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8', false);
+                case 'js':
+                    return json_encode($value, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
+                case 'css':
+                    // Экранирование для CSS
+                    return preg_replace('/[^a-zA-Z0-9]/', '', $value);
+                default:
+                    return htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8', false);
             }
-
-            if (is_string($value)) {
-                return htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8', false);
-            }
-
-            return $value;
         }
 
         public function raw($value)
@@ -66,9 +70,23 @@
             return $result;
         }
 
-        public function safeHtml($html)
+        public function unsafeRaw($value)
         {
-            $allowedTags = '<p><br><strong><em><u><ul><ol><li><a><code><pre>';
+            trigger_error('Using unsafeRaw method - potential XSS vulnerability', E_USER_WARNING);
+            return $value;
+        }
+
+        // УЛУЧШИТЬ safeHtml:
+        public function safeHtml($html, $allowedTags = null)
+        {
+            if ($allowedTags === null) {
+                $allowedTags = '<p><br><strong><em><u><ul><ol><li><a><code><pre><span><div>';
+            }
+
+            // Удаляем небезопасные атрибуты
+            $html = preg_replace('/\s+on\w+=\s*[\'"]?[^\'"]*[\'"]?/i', '', $html);
+            $html = preg_replace('/\s+style=\s*[\'"]?[^\'"]*[\'"]?/i', '', $html);
+
             return strip_tags($html, $allowedTags);
         }
 

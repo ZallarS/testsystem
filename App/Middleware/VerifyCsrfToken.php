@@ -57,12 +57,27 @@
 
             $allowedDomain = $_SERVER['HTTP_HOST'] ?? 'localhost';
 
-            // Более строгая проверка
-            if ($origin && parse_url($origin, PHP_URL_HOST) !== $allowedDomain) {
-                return false;
+            // Строгая проверка Origin
+            if ($origin) {
+                $originHost = parse_url($origin, PHP_URL_HOST);
+                if (!$originHost || $originHost !== $allowedDomain) {
+                    error_log("CSRF: Origin mismatch - {$originHost} vs {$allowedDomain}");
+                    return false;
+                }
             }
 
-            if ($referer && parse_url($referer, PHP_URL_HOST) !== $allowedDomain) {
+            // Строгая проверка Referer
+            if ($referer) {
+                $refererHost = parse_url($referer, PHP_URL_HOST);
+                if (!$refererHost || $refererHost !== $allowedDomain) {
+                    error_log("CSRF: Referer mismatch - {$refererHost} vs {$allowedDomain}");
+                    return false;
+                }
+            }
+
+            // Если оба заголовка отсутствуют - это подозрительно
+            if (!$origin && !$referer) {
+                error_log("CSRF: Missing both Origin and Referer headers");
                 return false;
             }
 

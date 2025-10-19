@@ -1,13 +1,17 @@
 <?php
 
     return [
-        'name' => 'Система тестирований',
-        'env' => 'development', // Убедимся, что в режиме разработки
-        'debug' => true,        // Включим отладку
-        'url' => 'https://lib31.ru:83',
-        'timezone' => 'UTC',
+        'secret' => $_ENV['APP_SECRET'] ?? 'your-secret-key-change-this-in-production',
+        'env' => $_ENV['APP_ENV'] ?? 'production',
+        'debug' => ($_ENV['APP_DEBUG'] ?? 'false') === 'true',
+
         'session' => [
-            'lifetime' => 120,
-            'expire_on_close' => false,
+            'lifetime' => 120, // minutes
+            'secure' => true,
+            'same_site' => 'lax'
+        ],
+
+        'csrf' => [
+            'lifetime' => 3600
         ]
     ];

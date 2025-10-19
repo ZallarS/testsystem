@@ -12,8 +12,10 @@
         try {
             \App\Core\Session::start();
 
-            // Логируем данные сессии после инициализации
-            error_log("Session data after start: " . print_r($_SESSION, true));
+            // Логируем данные сессии после инициализации - БЕЗОПАСНО
+            $sessionData = \App\Core\Session::getAll();
+            error_log("Session data after start: " . print_r($sessionData, true));
+
         } catch (\Exception $e) {
             error_log("Session initialization error: " . $e->getMessage());
         }

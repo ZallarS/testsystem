@@ -4,13 +4,45 @@
 
     class Cache
     {
-        public static function get($key)
+        private static $driver = 'file';
+        private static $config = [];
+
+        public static function get($key, $default = null)
+        {
+            switch (self::$driver) {
+                case 'redis':
+                    return self::redisGet($key, $default);
+                case 'apc':
+                    return self::apcGet($key, $default);
+                case 'file':
+                default:
+                    return self::fileGet($key, $default);
+            }
+        }
+
+        private static function fileSet($key, $value, $ttl)
+        {
+            $data = [
+                'value' => $value,
+                'expires' => time() + $ttl,
+                'created' => time()
+            ];
+
+            file_put_contents(self::getCachePath($key), serialize($data));
+        }
+
+        private static function fileGet($key, $default)
         {
             $file = self::getCachePath($key);
             if (file_exists($file) && time() - filemtime($file) < 3600) {
-                return unserialize(file_get_contents($file));
+                $data = unserialize(file_get_contents($file));
+                if (isset($data['expires']) && $data['expires'] < time()) {
+                    unlink($file);
+                    return $default;
+                }
+                return $data['value'] ?? $default;
             }
-            return null;
+            return $default;
         }
 
         public static function set($key, $value)

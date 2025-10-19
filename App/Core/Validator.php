@@ -106,6 +106,77 @@
             return true;
         }
 
+        // ДОБАВИТЬ контекстную валидацию:
+        public static function validateContext(array $data, array $rules, $context = 'default')
+        {
+            $errors = [];
+
+            foreach ($rules as $field => $ruleSet) {
+                $rules = explode('|', $ruleSet);
+                $value = $data[$field] ?? null;
+
+                foreach ($rules as $rule) {
+                    $error = self::validateRule($field, $value, $rule, $context);
+                    if ($error) {
+                        $errors[$field][] = $error;
+                    }
+                }
+            }
+
+            return $errors;
+        }
+
+        private static function validateRule($field, $value, $rule, $context)
+        {
+            if ($rule === 'required' && (empty($value) && $value !== '0')) {
+                return "Поле $field обязательно для заполнения";
+            }
+
+            if (empty($value) && $value !== '0') {
+                return null;
+            }
+
+            // Контекстно-зависимая валидация
+            switch ($context) {
+                case 'html':
+                    return self::validateHtmlRule($field, $value, $rule);
+                case 'sql':
+                    return self::validateSqlRule($field, $value, $rule);
+                case 'js':
+                    return self::validateJsRule($field, $value, $rule);
+                default:
+                    return self::validateDefaultRule($field, $value, $rule);
+            }
+        }
+
+// ДОБАВИТЬ санитизацию по контекстам:
+        public static function sanitize($input, $context = 'html')
+        {
+            if (is_array($input)) {
+                return array_map(function($item) use ($context) {
+                    return self::sanitize($item, $context);
+                }, $input);
+            }
+
+            if (!is_string($input)) {
+                return $input;
+            }
+
+            switch ($context) {
+                case 'html':
+                    return htmlspecialchars($input, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                case 'sql':
+                    // Для SQL используем подготовленные statements, поэтому минимальная санитизация
+                    return preg_replace('/[\x00-\x1F\x7F]/u', '', $input);
+                case 'js':
+                    return json_encode($input, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
+                case 'filename':
+                    return preg_replace('/[^a-zA-Z0-9._-]/', '', $input);
+                default:
+                    return htmlspecialchars($input, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            }
+        }
+
         public static function sanitizeInput($input)
         {
             if (is_array($input)) {

@@ -6,6 +6,14 @@ class CSRF
 {
     private static $tokenLength = 32;
     private static $tokenLifetime = 3600; // 1 час
+    private static $storageDriver = 'session'; // или 'redis', 'database'
+
+    public static function setStorageDriver($driver)
+    {
+        self::$storageDriver = $driver;
+    }
+
+
 
     public static function generateToken()
     {
@@ -37,10 +45,37 @@ class CSRF
         return $token;
     }
 
+    private static function storeToken($tokenId, $tokenData)
+    {
+        switch (self::$storageDriver) {
+            case 'redis':
+                // Реализация для Redis
+                break;
+            case 'database':
+                // Реализация для БД
+                break;
+            case 'session':
+            default:
+                $_SESSION['csrf_tokens'][$tokenId] = $tokenData;
+        }
+    }
+
     public static function validateToken($token)
     {
         if (empty($token) || !is_string($token)) {
             throw new \Exception("Empty or invalid CSRF token");
+        }
+
+        // Проверяем фортокен (разделенный токен)
+        if (strpos($token, '.') !== false) {
+            list($tokenValue, $tokenHmac) = explode('.', $token);
+
+            $expectedHmac = hash_hmac('sha256', $tokenValue, $secretKey ?? self::getAppSecret());
+            if (!hash_equals($expectedHmac, $tokenHmac)) {
+                throw new \Exception("CSRF token integrity check failed");
+            }
+
+            $token = $tokenValue;
         }
 
         if (empty($_SESSION['csrf_tokens'])) {

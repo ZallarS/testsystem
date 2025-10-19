@@ -132,9 +132,6 @@
         // Добавляем безопасные методы для сложных запросов
         public function query($sql, $params = [])
         {
-            // УДАЛЯЕМ ненадежную проверку isSafeQuery
-            // Вместо этого используем ТОЛЬКО подготовленные запросы
-
             try {
                 $stmt = $this->db->prepare($sql);
 
@@ -153,6 +150,37 @@
                 error_log("Database query error: " . $e->getMessage());
                 throw new \Exception("Database error occurred");
             }
+        }
+
+        public function rawQuery($sql, $allowedPatterns = [])
+        {
+            // Проверяем запрос на наличие опасных операций
+            $dangerousPatterns = [
+                '/\bDROP\b/i',
+                '/\bDELETE\b/i',
+                '/\bUPDATE\b/i',
+                '/\bINSERT\b/i',
+                '/\bALTER\b/i',
+                '/\bCREATE\b/i'
+            ];
+
+            foreach ($dangerousPatterns as $pattern) {
+                if (preg_match($pattern, $sql) && !$this->isQueryAllowed($sql, $allowedPatterns)) {
+                    throw new \InvalidArgumentException("Potentially dangerous query detected");
+                }
+            }
+
+            return $this->query($sql);
+        }
+
+        private function isQueryAllowed($sql, $allowedPatterns)
+        {
+            foreach ($allowedPatterns as $pattern) {
+                if (preg_match($pattern, $sql)) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         public function whereSafe($conditions, $params = [], $operator = 'AND')

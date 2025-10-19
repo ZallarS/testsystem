@@ -77,6 +77,21 @@
         private function initializeContainer()
         {
             $this->container = new Container();
+
+            // ДОБАВЛЯЕМ проверку на случай отсутствия конфигурационных файлов
+            try {
+                $appConfig = $this->container->config('app');
+                if (!$appConfig) {
+                    // Если конфигурация не загружена, устанавливаем значения по умолчанию
+                    $this->container->set('app_config', [
+                        'secret' => $_ENV['APP_SECRET'] ?? 'fallback-secret-key',
+                        'env' => $_ENV['APP_ENV'] ?? 'production'
+                    ]);
+                }
+            } catch (\Exception $e) {
+                // Игнорируем ошибки конфигурации на этом этапе
+                error_log("Configuration loading warning: " . $e->getMessage());
+            }
         }
 
         private function initializeRouter()
@@ -125,10 +140,11 @@
                 $path = substr($path, 0, -1);
             }
 
-            // Диагностика
+            // Диагностика - БЕЗОПАСНОЕ логирование
             error_log("Request: $method $path");
             error_log("Session status: " . session_status());
             error_log("Session ID: " . (session_status() === PHP_SESSION_ACTIVE ? session_id() : 'none'));
+            error_log("Session name: " . session_name());
             error_log("Cookies: " . print_r($_COOKIE, true));
 
             // Обработка запроса
@@ -141,7 +157,7 @@
                     echo $result;
                 }
             } catch (\Exception $e) {
-                error_log("Error: " . $e->getMessage());
+                error_log("Router dispatch error: " . $e->getMessage());
                 $response = Response::make("500 - Internal Server Error", 500);
                 $response->send();
             }

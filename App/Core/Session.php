@@ -1,15 +1,20 @@
 <?php
 
-namespace App\Core;
+    namespace App\Core;
 
-class Session
-{
-    private static $cliSessionData = [];
-    private static $cliMode = false;
-
-    public static function start()
+    class Session
     {
-        if (session_status() === PHP_SESSION_NONE) {
+        private static $cliSessionData = [];
+        private static $cliMode = false;
+        private static $sessionStarted = false;
+
+        public static function start()
+        {
+            if (self::$sessionStarted) {
+                return;
+            }
+
+            self::$sessionStarted = true;
             self::$cliMode = (php_sapi_name() === 'cli');
 
             if (self::$cliMode) {
@@ -19,19 +24,27 @@ class Session
                 return;
             }
 
-            // Усиливаем безопасность cookie
+            // Если сессия уже активна с другим именем, закрываем её
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                if (session_name() !== 'TESTSYSTEM_SID') {
+                    session_write_close();
+                } else {
+                    // Уже активна с нашим именем
+                    self::initializeSessionData();
+                    return;
+                }
+            }
+
+            // Настраиваем и запускаем сессию
             session_name('TESTSYSTEM_SID');
-            $domain = self::getDomain();
-            $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
-                (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
 
             $cookieParams = [
                 'lifetime' => 86400,
                 'path' => '/',
-                'domain' => $domain,
-                'secure' => $isSecure,
+                'domain' => self::getDomain(),
+                'secure' => self::isSecure(),
                 'httponly' => true,
-                'samesite' => 'Lax' // Меняем на Lax для лучшей совместимости
+                'samesite' => 'Lax'
             ];
 
             session_set_cookie_params($cookieParams);
@@ -40,133 +53,209 @@ class Session
             ini_set('session.use_strict_mode', '1');
             ini_set('session.use_only_cookies', '1');
             ini_set('session.cookie_httponly', '1');
-            ini_set('session.cookie_secure', $isSecure ? '1' : '0');
+            ini_set('session.cookie_secure', self::isSecure() ? '1' : '0');
             ini_set('session.use_trans_sid', '0');
             ini_set('session.cookie_samesite', 'Lax');
+            ini_set('session.gc_maxlifetime', 3600);
 
             if (!session_start()) {
                 throw new \RuntimeException('Failed to start session');
             }
 
+            self::initializeSessionData();
+            self::validateSession();
+        }
+
+        private static function initializeSessionData()
+        {
             // Защита от session fixation
             if (empty($_SESSION['created'])) {
                 session_regenerate_id(true);
                 $_SESSION['created'] = time();
                 $_SESSION['user_agent'] = $_SERVER['HTTP_USER_AGENT'] ?? '';
-                // НЕ сохраняем IP - это вызывает проблемы у пользователей
+                $_SESSION['ip_hash'] = self::hashIp($_SERVER['REMOTE_ADDR'] ?? '');
+                $_SESSION['regenerated_at'] = time();
             }
         }
-    }
-    public static function regenerate()
-    {
-        if (!self::$cliMode && session_status() === PHP_SESSION_ACTIVE) {
-            session_regenerate_id(true);
-        }
-    }
 
-    public static function get($key, $default = null)
-    {
-        self::start();
+        private static function validateSession()
+        {
+            if (!isset($_SESSION['user_agent']) || !isset($_SESSION['ip_hash'])) {
+                return;
+            }
 
-        if (self::$cliMode) {
-            return self::$cliSessionData[$key] ?? $default;
-        }
+            $currentUserAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+            $currentIpHash = self::hashIp($_SERVER['REMOTE_ADDR'] ?? '');
 
-        return $_SESSION[$key] ?? $default;
-    }
+            if ($_SESSION['user_agent'] !== $currentUserAgent) {
+                self::destroy();
+                throw new \RuntimeException('Session user agent mismatch');
+            }
 
-    private static function getDomain()
-    {
-        $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
-
-        // Удаляем порт из домена для куки
-        if (strpos($host, ':') !== false) {
-            $host = substr($host, 0, strpos($host, ':'));
+            // Регенерация сессии каждые 15 минут
+            if (time() - ($_SESSION['regenerated_at'] ?? 0) > 900) {
+                session_regenerate_id(true);
+                $_SESSION['regenerated_at'] = time();
+            }
         }
 
-        // Для localhost оставляем как есть, иначе удаляем www и субдомены
-        if ($host !== 'localhost' && $host !== '127.0.0.1') {
-            // Оставляем только основной домен и поддомен верхнего уровня
+        // ДОБАВЛЯЕМ метод для безопасного получения всех данных сессии
+        public static function getAll()
+        {
+            self::start();
+
+            if (self::$cliMode) {
+                return self::$cliSessionData;
+            }
+
+            // Возвращаем копию для безопасности
+            return $_SESSION ? array_merge([], $_SESSION) : [];
+        }
+
+        private static function isSecure()
+        {
+            return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
+                (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') ||
+                (!empty($_SERVER['HTTP_X_FORWARDED_SSL']) && $_SERVER['HTTP_X_FORWARDED_SSL'] === 'on') ||
+                (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443);
+        }
+
+        private static function getAppSecret()
+        {
+            // Безопасное получение секрета без зависимостей
+            $secret = $_ENV['APP_SECRET'] ?? 'default-secret-key-change-in-production';
+
+            // Если секрет по умолчанию, логируем предупреждение
+            if ($secret === 'default-secret-key-change-in-production') {
+                error_log('SECURITY WARNING: Using default app secret. Change APP_SECRET in .env file!');
+            }
+
+            return $secret;
+        }
+
+        private static function hashIp($ip)
+        {
+            return hash('sha256', $ip . self::getAppSecret());
+        }
+
+        private static function getDomain()
+        {
+            $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
+
+            // Удаляем порт из домена для куки
+            if (strpos($host, ':') !== false) {
+                $host = substr($host, 0, strpos($host, ':'));
+            }
+
+            // Для localhost оставляем как есть
+            if ($host === 'localhost' || $host === '127.0.0.1' || filter_var($host, FILTER_VALIDATE_IP)) {
+                return $host;
+            }
+
+            // Для реальных доменов оставляем основной домен
             $parts = explode('.', $host);
             if (count($parts) > 2) {
                 $host = implode('.', array_slice($parts, -2));
             }
+
+            return $host;
         }
 
-        return $host;
-    }
+        public static function get($key, $default = null)
+        {
+            self::start();
 
-    public static function set($key, $value)
-    {
-        self::start();
+            if (self::$cliMode) {
+                return self::$cliSessionData[$key] ?? $default;
+            }
 
-        if (self::$cliMode) {
-            self::$cliSessionData[$key] = $value;
-            return;
+            return $_SESSION[$key] ?? $default;
         }
 
-        if (session_status() === PHP_SESSION_ACTIVE) {
+        public static function set($key, $value)
+        {
+            self::start();
+
+            if (self::$cliMode) {
+                self::$cliSessionData[$key] = $value;
+                return;
+            }
+
             $_SESSION[$key] = $value;
-        } else {
-            error_log("Cannot set session value: session is not active");
-        }
-    }
-
-    public static function remove($key)
-    {
-        self::start();
-
-        if (self::$cliMode) {
-            unset(self::$cliSessionData[$key]);
-            return;
         }
 
-        unset($_SESSION[$key]);
-    }
+        public static function remove($key)
+        {
+            self::start();
 
-    public static function destroy()
-    {
-        if (self::$cliMode) {
-            self::$cliSessionData = [];
-            return;
+            if (self::$cliMode) {
+                unset(self::$cliSessionData[$key]);
+                return;
+            }
+
+            unset($_SESSION[$key]);
         }
 
-        if (session_status() === PHP_SESSION_ACTIVE) {
-            session_unset();
-            session_destroy();
-            session_write_close();
+        public static function destroy()
+        {
+            if (self::$cliMode) {
+                self::$cliSessionData = [];
+                self::$sessionStarted = false;
+                return;
+            }
 
-            // Удаляем cookie сессии
-            if (ini_get("session.use_cookies")) {
-                $params = session_get_cookie_params();
-                setcookie(session_name(), '', time() - 42000,
-                    $params["path"], $params["domain"],
-                    $params["secure"], $params["httponly"]
-                );
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                // Очищаем все данные сессии
+                $_SESSION = [];
+
+                // Удаляем cookie сессии
+                if (ini_get("session.use_cookies")) {
+                    $params = session_get_cookie_params();
+                    setcookie(
+                        session_name(),
+                        '',
+                        time() - 42000,
+                        $params["path"],
+                        $params["domain"],
+                        $params["secure"],
+                        $params["httponly"]
+                    );
+                }
+
+                session_destroy();
+            }
+
+            self::$sessionStarted = false;
+        }
+
+        public static function id()
+        {
+            if (self::$cliMode) {
+                return 'cli-session-' . md5(serialize(self::$cliSessionData));
+            }
+
+            return session_id();
+        }
+
+        public static function status()
+        {
+            if (self::$cliMode) {
+                return PHP_SESSION_ACTIVE;
+            }
+
+            return session_status();
+        }
+
+        public static function isCliMode()
+        {
+            return self::$cliMode;
+        }
+
+        public static function regenerate($deleteOld = true)
+        {
+            if (!self::$cliMode && session_status() === PHP_SESSION_ACTIVE) {
+                session_regenerate_id($deleteOld);
+                $_SESSION['regenerated_at'] = time();
             }
         }
     }
-
-    public static function id()
-    {
-        if (self::$cliMode) {
-            return 'cli-session-' . md5(serialize(self::$cliSessionData));
-        }
-
-        return session_id();
-    }
-
-    public static function status()
-    {
-        if (self::$cliMode) {
-            return PHP_SESSION_ACTIVE;
-        }
-
-        return session_status();
-    }
-
-    public static function isCliMode()
-    {
-        return self::$cliMode;
-    }
-}
