@@ -7,23 +7,71 @@
 
     class VerifyCsrfToken
     {
+        private $excludedRoutes = [
+            '/api/webhooks',
+            '/api/stripe-events'
+        ];
+
         public function handle($next)
         {
-            // Проверяем все модифицирующие методы, не только POST
-            $modifyingMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
+            $requestMethod = $_SERVER['REQUEST_METHOD'];
+            $requestUri = $_SERVER['REQUEST_URI'] ?? '';
 
-            if (in_array($_SERVER['REQUEST_METHOD'], $modifyingMethods)) {
-                $token = $_POST['csrf_token'] ??
-                    ($_SERVER['HTTP_X_CSRF_TOKEN'] ??
-                        ($_GET['csrf_token'] ?? ''));
+            // Пропускаем исключенные маршруты и GET-запросы
+            if ($requestMethod === 'GET' || $this->isExcluded($requestUri)) {
+                return $next();
+            }
 
-                try {
-                    CSRF::validateToken($token);
-                } catch (\Exception $e) {
-                    return Response::make('CSRF token validation failed', 403);
-                }
+            // Проверяем Origin и Referer для дополнительной защиты
+            if (!$this->isValidOrigin()) {
+                return Response::make('Invalid request origin', 403);
+            }
+
+            $token = $this->getTokenFromRequest();
+
+            try {
+                CSRF::validateToken($token);
+            } catch (\Exception $e) {
+                error_log("CSRF validation failed: " . $e->getMessage());
+                return Response::make('CSRF token validation failed', 403);
             }
 
             return $next();
+        }
+
+        private function isExcluded($uri)
+        {
+            foreach ($this->excludedRoutes as $excluded) {
+                if (strpos($uri, $excluded) === 0) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private function isValidOrigin()
+        {
+            $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+            $referer = $_SERVER['HTTP_REFERER'] ?? '';
+
+            $allowedDomain = $_SERVER['HTTP_HOST'] ?? 'localhost';
+
+            if ($origin && parse_url($origin, PHP_URL_HOST) !== $allowedDomain) {
+                return false;
+            }
+
+            if ($referer && parse_url($referer, PHP_URL_HOST) !== $allowedDomain) {
+                return false;
+            }
+
+            return true;
+        }
+
+        private function getTokenFromRequest()
+        {
+            // Приоритет: заголовок > POST > GET
+            return $_SERVER['HTTP_X_CSRF_TOKEN'] ??
+                ($_POST['csrf_token'] ??
+                    ($_GET['csrf_token'] ?? ''));
         }
     }

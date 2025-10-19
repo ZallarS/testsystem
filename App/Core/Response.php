@@ -17,40 +17,40 @@
             return new self($content, $statusCode, $headers);
         }
 
-        public static function json($data, $statusCode = 200, $headers = []) {
-            $headers['Content-Type'] = 'application/json';
-            return new self(json_encode($data), $statusCode, $headers);
+        public static function json($data, $statusCode = 200, $headers = [])
+        {
+            $headers['Content-Type'] = 'application/json; charset=utf-8';
+
+            // Экранируем потенциально опасные данные
+            $safeData = self::sanitizeJsonData($data);
+
+            return new self(json_encode($safeData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP), $statusCode, $headers);
+        }
+
+        private static function sanitizeJsonData($data)
+        {
+            if (is_array($data)) {
+                return array_map([self::class, 'sanitizeJsonData'], $data);
+            }
+
+            if (is_string($data)) {
+                // Экранируем для безопасного встраивания в JavaScript
+                return htmlspecialchars($data, ENT_NOQUOTES, 'UTF-8');
+            }
+
+            return $data;
         }
 
         public static function view($viewPath, $data = [], $statusCode = 200, $headers = [])
         {
-            $viewFile = VIEWS_PATH . $viewPath . '.php';
+            $renderer = new ViewRenderer();
 
-            if (!file_exists($viewFile)) {
-                throw new \Exception("View file not found: " . $viewFile);
-            }
-
-            // Извлекаем данные в переменные
-            extract($data);
-
-            // Буферизуем вывод view
-            ob_start();
-            include $viewFile;
-            $content = ob_get_clean();
-
-            // Используем layout
-            $layoutFile = VIEWS_PATH . 'layout/main.php';
-
-            if (file_exists($layoutFile)) {
-                // Рендерим layout с содержимым view
-                ob_start();
-                include $layoutFile;
-                $finalContent = ob_get_clean();
-
-                return new self($finalContent, $statusCode, $headers);
-            } else {
-                // Если layout не существует, загружаем только view
+            try {
+                $content = $renderer->render($viewPath, $data);
                 return new self($content, $statusCode, $headers);
+            } catch (\Exception $e) {
+                error_log("View rendering error: " . $e->getMessage());
+                return new self("Error rendering view", 500, $headers);
             }
         }
 

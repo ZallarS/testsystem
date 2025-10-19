@@ -619,14 +619,7 @@
     <div class="nav">
         <a href="/" class="logo">MyApp</a>
 
-        <div class="main-nav">
-
-            <?php if (\App\Core\User::isLoggedIn()): ?>
-                <?php if (\App\Core\User::isAdmin()): ?>
-                    <a href="/admin" class="nav-link <?= ($activeMenu ?? '') === 'admin_dashboard' ? 'active' : '' ?>">Админ-панель</a>
-                <?php endif; ?>
-            <?php endif; ?>
-        </div>
+        <div class="main-nav"></div>
 
         <div class="auth-buttons">
             <?php if (\App\Core\User::isLoggedIn()): ?>
@@ -649,6 +642,13 @@
                             <div class="dropdown-icon">👤</div>
                             <span>Личный кабинет</span>
                         </a>
+
+                        <?php if (\App\Core\User::isAdmin()): ?>
+                            <a href="/admin" class="dropdown-item">
+                                <div class="dropdown-icon">📊</div>
+                                <span>Админ-панель</span>
+                            </a>
+                        <?php endif; ?>
 
                         <div class="dropdown-divider"></div>
 

@@ -2,29 +2,38 @@
 
     namespace App\Controllers\Admin;
 
-    use App\Core\Controller;
+    use App\Core\BaseController;
     use App\Core\Response;
-    use App\Models\User as UserModel;
+    use App\Services\UserService;
+    use App\Validators\UserValidator;
 
     class UsersController extends Controller
     {
-        private $userModel;
+        private $userService;
+        private $userValidator;
 
         public function __construct()
         {
             parent::__construct();
-            $this->userModel = new UserModel();
+            $this->userService = new UserService();
+            $this->userValidator = new UserValidator();
         }
 
         public function index()
         {
-            $users = $this->userModel->all();
+            try {
+                $this->authorize('users.manage');
 
-            return $this->view('admin/users/index', [
-                'users' => $users,
-                'title' => 'Управление пользователями',
-                'activeMenu' => 'users'
-            ]);
+                $users = $this->userService->getAllUsersWithRoles();
+
+                return $this->viewResponse('admin/users/index', [
+                    'users' => $users,
+                    'title' => 'Управление пользователями',
+                    'activeMenu' => 'users'
+                ]);
+            } catch (\Exception $e) {
+                return $this->handleException($e, 'Failed to load users');
+            }
         }
 
         public function edit($id)
@@ -76,79 +85,28 @@
 
         public function store()
         {
-
-            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-                $token = $_POST['csrf_token'] ?? '';
-                try {
-                    \App\Core\CSRF::validateToken($token);
-                } catch (\Exception $e) {
-                    return Response::redirect('/admin/users?error=Недействительный CSRF-токен');
-                }
-            }
-
-            $name = $_POST['name'] ?? '';
-            $email = $_POST['email'] ?? '';
-            $password = $_POST['password'] ?? '';
-            $role = $_POST['role'] ?? 'user';
-            $confirmPassword = $_POST['confirm_password'] ?? '';
-
-            // Валидация
-            $errors = $this->validateUserData($name, $email, $password, $confirmPassword);
-
-            if (!empty($errors)) {
-                return $this->view('admin/users/create', [
-                    'errors' => $errors,
-                    'name' => $name,
-                    'email' => $email,
-                    'role' => $role,
-                    'title' => 'Добавление пользователя',
-                    'activeMenu' => 'users',
-                    'roles' => ['user', 'admin']
-                ]);
-            }
-
-            // Создание пользователя
-            $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-
             try {
-                $this->userModel->getDb()->beginTransaction();
+                $this->authorize('users.create');
 
-                // Создание пользователя
+                // Валидация
+                $validationError = $this->validateRequest($this->userValidator->getCreationRules());
+                if ($validationError) {
+                    return $validationError;
+                }
+
                 $userData = [
-                    'name' => $name,
-                    'email' => $email,
-                    'password' => $hashedPassword
+                    'name' => $_POST['name'],
+                    'email' => $_POST['email'],
+                    'password' => $_POST['password'],
+                    'roles' => $_POST['roles'] ?? ['user']
                 ];
 
-                if (!$this->userModel->create($userData)) {
-                    throw new \Exception("Failed to create user");
-                }
+                $user = $this->userService->createUser($userData);
 
-                $userId = $this->userModel->getDb()->lastInsertId();
+                return $this->redirectResponse('/admin/users?message=Пользователь успешно создан');
 
-                // Назначение ролей
-                $roles = $_POST['roles'] ?? ['user']; // По умолчанию роль 'user'
-                if (!empty($roles)) {
-                    $this->updateUserRoles($userId, $roles);
-                }
-
-                $this->userModel->getDb()->commit();
-
-                return Response::redirect('/admin/users?message=Пользователь успешно создан');
             } catch (\Exception $e) {
-                $this->userModel->getDb()->rollBack();
-                error_log("Error creating user: " . $e->getMessage());
-
-                $errors[] = 'Ошибка при создании пользователя';
-                return $this->view('admin/users/create', [
-                    'errors' => $errors,
-                    'name' => $name,
-                    'email' => $email,
-                    'roles' => $roles,
-                    'title' => 'Добавление пользователя',
-                    'activeMenu' => 'users',
-                    'availableRoles' => ['user', 'moderator', 'admin']
-                ]);
+                return $this->handleException($e, 'Failed to create user');
             }
         }
 
@@ -179,56 +137,34 @@
 
         public function update($id)
         {
-            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-                $token = $_POST['csrf_token'] ?? '';
-                try {
-                    \App\Core\CSRF::validateToken($token);
-                } catch (\Exception $e) {
-                    return Response::redirect('/admin/users?error=Недействительный CSRF-токен');
-                }
-            }
-
-            $user = $this->userModel->find($id);
-
-            if (!$user) {
-                return Response::redirect('/admin/users?error=Пользователь не найден');
-            }
-
-            // Обновляем основные данные пользователя
-            $data = [
-                'name' => $_POST['name'] ?? $user['name'],
-                'email' => $_POST['email'] ?? $user['email']
-            ];
-
-            // Если указан новый пароль, добавляем его
-            if (!empty($_POST['password'])) {
-                $data['password'] = password_hash($_POST['password'], PASSWORD_DEFAULT);
-            }
-
-            // Начинаем транзакцию
-            $this->userModel->getDb()->beginTransaction();
-
             try {
-                // Обновляем основные данные пользователя
-                if ($this->userModel->update($id, $data)) {
-                    // Обновляем роли пользователя
-                    $newRoles = $_POST['roles'] ?? [];
-                    if (!empty($newRoles)) {
-                        $this->updateUserRoles($id, $newRoles);
-                    }
+                $this->authorize('users.update');
 
-                    // Фиксируем изменения
-                    $this->userModel->getDb()->commit();
-
-                    return Response::redirect('/admin/users?message=Пользователь успешно обновлен');
-                } else {
-                    $this->userModel->getDb()->rollBack();
-                    return Response::redirect('/admin/users/edit/' . $id . '?error=Ошибка при обновлении пользователя');
+                if (!$this->userValidator->validateUserId($id)) {
+                    return $this->redirectResponse('/admin/users?error=Неверный ID пользователя');
                 }
+
+                $validationError = $this->validateRequest($this->userValidator->getUpdateRules());
+                if ($validationError) {
+                    return $validationError;
+                }
+
+                $userData = [
+                    'name' => $_POST['name'],
+                    'email' => $_POST['email'],
+                    'roles' => $_POST['roles'] ?? []
+                ];
+
+                if (!empty($_POST['password'])) {
+                    $userData['password'] = $_POST['password'];
+                }
+
+                $this->userService->updateUser($id, $userData);
+
+                return $this->redirectResponse('/admin/users?message=Пользователь успешно обновлен');
+
             } catch (\Exception $e) {
-                $this->userModel->getDb()->rollBack();
-                error_log("Error updating user: " . $e->getMessage());
-                return Response::redirect('/admin/users/edit/' . $id . '?error=Ошибка при обновлении пользователя');
+                return $this->handleException($e, 'Failed to update user');
             }
         }
 
