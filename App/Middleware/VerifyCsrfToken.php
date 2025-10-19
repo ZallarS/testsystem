@@ -17,20 +17,21 @@
             $requestMethod = $_SERVER['REQUEST_METHOD'];
             $requestUri = $_SERVER['REQUEST_URI'] ?? '';
 
-            // Пропускаем исключенные маршруты и GET-запросы
-            if ($requestMethod === 'GET' || $this->isExcluded($requestUri)) {
+            // Расширяем список безопасных методов
+            if (in_array($requestMethod, ['GET', 'HEAD', 'OPTIONS']) || $this->isExcluded($requestUri)) {
                 return $next();
             }
 
-            // Проверяем Origin и Referer для дополнительной защиты
+            // Усиливаем проверку Origin
             if (!$this->isValidOrigin()) {
+                error_log("CSRF: Invalid origin for request to $requestUri");
                 return Response::make('Invalid request origin', 403);
             }
 
             $token = $this->getTokenFromRequest();
 
             try {
-                CSRF::validateToken($token);
+                \App\Core\CSRF::validateToken($token);
             } catch (\Exception $e) {
                 error_log("CSRF validation failed: " . $e->getMessage());
                 return Response::make('CSRF token validation failed', 403);
@@ -56,6 +57,7 @@
 
             $allowedDomain = $_SERVER['HTTP_HOST'] ?? 'localhost';
 
+            // Более строгая проверка
             if ($origin && parse_url($origin, PHP_URL_HOST) !== $allowedDomain) {
                 return false;
             }

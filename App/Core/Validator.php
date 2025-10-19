@@ -22,19 +22,32 @@
                 $value = $data[$field] ?? null;
 
                 foreach ($rules as $rule) {
-                    if ($rule === 'required' && empty($value)) {
-                        $errors[$field][] = "Поле {$field} обязательно для заполнения";
+                    if ($rule === 'required' && (empty($value) && $value !== '0')) {
+                        $errors[$field][] = "Поле $field обязательно для заполнения";
+                        continue;
+                    }
+
+                    if (empty($value) && $value !== '0') {
+                        continue; // Пропускаем проверки для необязательных пустых полей
                     }
 
                     if (strpos($rule, 'min:') === 0) {
                         $min = (int) str_replace('min:', '', $rule);
-                        if (strlen($value) < $min) {
-                            $errors[$field][] = "Поле {$field} должно содержать минимум {$min} символов";
+                        if (is_string($value) && mb_strlen($value) < $min) {
+                            $errors[$field][] = "Поле $field должно содержать минимум $min символов";
                         }
                     }
 
                     if ($rule === 'email' && !self::email($value)) {
-                        $errors[$field][] = "Поле {$field} должно содержать valid email";
+                        $errors[$field][] = "Поле $field должно содержать valid email";
+                    }
+
+                    // Добавляем проверку на максимальную длину
+                    if (strpos($rule, 'max:') === 0) {
+                        $max = (int) str_replace('max:', '', $rule);
+                        if (is_string($value) && mb_strlen($value) > $max) {
+                            $errors[$field][] = "Поле $field должно содержать не более $max символов";
+                        }
                     }
                 }
             }
@@ -99,9 +112,16 @@
                 return array_map([self::class, 'sanitizeInput'], $input);
             }
 
-            // Удаляем потенциально опасные теги и символы
-            $clean = strip_tags($input);
-            $clean = htmlspecialchars($clean, ENT_QUOTES, 'UTF-8');
+            if (!is_string($input)) {
+                return $input;
+            }
+
+            // Убираем лишние пробелы
+            $clean = trim($input);
+            // Удаляем непечатаемые символы
+            $clean = preg_replace('/[\x00-\x1F\x7F]/u', '', $clean);
+            // Экранируем специальные символы HTML
+            $clean = htmlspecialchars($clean, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
             return $clean;
         }

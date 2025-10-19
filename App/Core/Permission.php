@@ -21,6 +21,10 @@ class Permission
     {
         $userRoles = $userRoles ?: User::getRoles();
 
+        // Приводим все к нижнему регистру для унификации
+        $permission = strtolower($permission);
+        $userRoles = array_map('strtolower', $userRoles);
+
         foreach ($userRoles as $role) {
             if (isset(self::$permissions[$role]) &&
                 in_array($permission, self::$permissions[$role])) {

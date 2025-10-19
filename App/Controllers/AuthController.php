@@ -44,6 +44,7 @@
 
         public function processLogin()
         {
+
             error_log("Process login started. Session ID: " . (\App\Core\Session::id() ?? 'none'));
 
             $email = $_POST['email'] ?? '';
@@ -86,18 +87,12 @@
             error_log("Password verification result: " . ($passwordValid ? 'true' : 'false'));
 
             if (!$passwordValid) {
-                error_log("Password verification failed");
-                error_log("Input password: $password");
-
-                // Дополнительная проверка - возможно пароль хранится в plain text
-                if ($user['password'] === $password) {
-                    error_log("WARNING: Password appears to be stored in plain text!");
-                    // Если пароль в plain text, хэшируем его и обновляем в базе
-                    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-                    $this->userModel->update($user['id'], ['password' => $hashedPassword]);
-                    error_log("Password has been hashed and updated in database");
-                    $passwordValid = true;
-                }
+                error_log("Invalid credentials for email: $email");
+                return $this->view('auth/login', [
+                    'error' => 'Invalid email or password',
+                    'email' => $email,
+                    'title' => 'Login - My Application'
+                ]);
             }
 
             if (!$user || !$passwordValid) {

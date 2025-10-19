@@ -101,20 +101,35 @@
             return '404 - Page not found';
         }
 
-        private function executeHandler($handler, $params) {
+        private function executeHandler($handler, $params)
+        {
+            // Добавляем проверку на callable
+            if (!is_callable($handler) && !(is_array($handler) && count($handler) === 2)) {
+                throw new \InvalidArgumentException("Invalid route handler");
+            }
+
             if (is_array($handler) && count($handler) === 2) {
                 $controller = $handler[0];
                 $action = $handler[1];
 
-                if (class_exists($controller)) {
-                    $controllerInstance = new $controller();
-                    if (method_exists($controllerInstance, $action)) {
-                        return call_user_func_array([$controllerInstance, $action], $params);
-                    }
+                if (!class_exists($controller)) {
+                    throw new \RuntimeException("Controller class $controller not found");
                 }
+
+                $controllerInstance = new $controller();
+                if (!method_exists($controllerInstance, $action)) {
+                    throw new \RuntimeException("Action $action not found in controller $controller");
+                }
+
+                // Санитизируем параметры перед передачей в контроллер
+                $sanitizedParams = array_map([\App\Core\Validator::class, 'sanitizeInput'], $params);
+
+                return call_user_func_array([$controllerInstance, $action], $sanitizedParams);
             }
 
-            return call_user_func_array($handler, $params);
+            // Для callable также санитизируем параметры
+            $sanitizedParams = array_map([\App\Core\Validator::class, 'sanitizeInput'], $params);
+            return call_user_func_array($handler, $sanitizedParams);
         }
 
         public function group($prefix, $callback, $options = [])

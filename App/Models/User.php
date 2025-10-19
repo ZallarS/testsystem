@@ -168,19 +168,30 @@
 
         public function update($id, array $data)
         {
-
-            if (!is_numeric($id)) {
-                throw new \InvalidArgumentException('ID must be numeric');
+            if (!is_numeric($id) || $id <= 0) {
+                throw new \InvalidArgumentException('Invalid user ID');
             }
 
-            // Если обновляется пароль, хешируем его
+            // Более строгая валидация email
+            if (isset($data['email'])) {
+                $data['email'] = filter_var($data['email'], FILTER_SANITIZE_EMAIL);
+                if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
+                    throw new \InvalidArgumentException("Invalid email format");
+                }
+
+                // Проверяем уникальность email (исключая текущего пользователя)
+                $existing = $this->findByEmail($data['email']);
+                if ($existing && $existing['id'] != $id) {
+                    throw new \InvalidArgumentException("Email already exists");
+                }
+            }
+
+            // Всегда хэшируем пароль, если он предоставлен
             if (isset($data['password'])) {
+                if (strlen($data['password']) < 8) {
+                    throw new \InvalidArgumentException("Password must be at least 8 characters long");
+                }
                 $data['password'] = password_hash($data['password'], PASSWORD_DEFAULT);
-            }
-
-            // Валидация email, если он обновляется
-            if (isset($data['email']) && !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-                throw new \InvalidArgumentException("Invalid email format");
             }
 
             return parent::update($id, $data);

@@ -8,20 +8,24 @@
     {
         public function handle($next)
         {
-            // Устанавливаем заголовки безопасности
+            // Устанавливаем security headers
             header("X-Content-Type-Options: nosniff");
             header("X-Frame-Options: DENY");
             header("X-XSS-Protection: 1; mode=block");
+            header("Referrer-Policy: strict-origin-when-cross-origin");
 
             // Content Security Policy
+            $nonce = base64_encode(random_bytes(16));
+
             $csp = [
                 "default-src 'self'",
-                "script-src 'self' 'unsafe-inline'", // Осторожно с unsafe-inline!
-                "style-src 'self' 'unsafe-inline'",
-                "img-src 'self' data:",
+                "script-src 'self' 'nonce-$nonce'",
+                "style-src 'self' 'unsafe-inline'", // Разрешаем inline стили для совместимости
+                "img-src 'self' data: https:",
                 "object-src 'none'",
                 "base-uri 'self'",
-                "form-action 'self'"
+                "form-action 'self'",
+                "frame-ancestors 'none'"
             ];
 
             header("Content-Security-Policy: " . implode("; ", $csp));

@@ -20,7 +20,11 @@
         protected function validateRequest(array $rules, array $data = null)
         {
             $data = $data ?? ($_POST + $_GET);
-            $errors = $this->validator->validate($data, $rules);
+
+            // Санитизируем входные данные перед валидацией
+            $sanitizedData = \App\Core\Validator::sanitizeInput($data);
+
+            $errors = $this->validator->validate($sanitizedData, $rules);
 
             if (!empty($errors)) {
                 return $this->jsonResponse(['errors' => $errors], 422);

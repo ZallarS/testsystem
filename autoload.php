@@ -33,6 +33,18 @@
     define('MIGRATIONS_PATH', DATABASE_PATH . 'migrations/');
     define('SEEDS_PATH', DATABASE_PATH . 'seeds/');
 
+    if (!function_exists('e')) {
+        function e($value) {
+            if (is_array($value)) {
+                return array_map('e', $value);
+            }
+            if (is_string($value)) {
+                return htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            }
+            return $value;
+        }
+    }
+
     // Создаем необходимые директории, если они не существуют
     $directories = [STORAGE_PATH];
     foreach ($directories as $directory) {
@@ -40,3 +52,4 @@
             mkdir($directory, 0755, true);
         }
     }
+

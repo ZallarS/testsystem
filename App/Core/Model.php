@@ -132,45 +132,47 @@
         // Добавляем безопасные методы для сложных запросов
         public function query($sql, $params = [])
         {
-            // Проверяем SQL на опасные операции
-            if (!$this->isSafeQuery($sql)) {
-                throw new \InvalidArgumentException("Potentially dangerous query detected");
-            }
+            // УДАЛЯЕМ ненадежную проверку isSafeQuery
+            // Вместо этого используем ТОЛЬКО подготовленные запросы
 
-            $stmt = $this->db->prepare($sql);
+            try {
+                $stmt = $this->db->prepare($sql);
 
-            foreach ($params as $key => $value) {
-                if (is_int($key)) {
-                    $stmt->bindValue($key + 1, $value);
-                } else {
-                    $stmt->bindValue($key, $value);
+                foreach ($params as $key => $value) {
+                    $type = is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR;
+                    if (is_int($key)) {
+                        $stmt->bindValue($key + 1, $value, $type);
+                    } else {
+                        $stmt->bindValue($key, $value, $type);
+                    }
                 }
-            }
 
-            $stmt->execute();
-            return $stmt;
+                $stmt->execute();
+                return $stmt;
+            } catch (\PDOException $e) {
+                error_log("Database query error: " . $e->getMessage());
+                throw new \Exception("Database error occurred");
+            }
         }
 
-        private function isSafeQuery($sql)
+        public function whereSafe($conditions, $params = [], $operator = 'AND')
         {
-            $dangerousPatterns = [
-                '/\bDROP\b/i',
-                '/\bDELETE\s+FROM\b/i',
-                '/\bTRUNCATE\b/i',
-                '/\bINSERT\s+INTO\b/i',
-                '/\bUPDATE\b/i',
-                '/\bALTER\b/i',
-                '/\bCREATE\b/i',
-                '/\bEXEC\b/i',
-                '/\bUNION\b/i'
-            ];
+            $whereParts = [];
+            $bindings = [];
 
-            foreach ($dangerousPatterns as $pattern) {
-                if (preg_match($pattern, $sql)) {
-                    return false;
+            foreach ($conditions as $field => $value) {
+                if (!$this->isValidColumnName($field)) {
+                    throw new \InvalidArgumentException("Invalid column name: $field");
                 }
+
+                $paramName = ':' . str_replace('.', '_', $field);
+                $whereParts[] = "`$field` = $paramName";
+                $bindings[$paramName] = $value;
             }
 
-            return true;
+            $whereClause = implode(" $operator ", $whereParts);
+            $sql = "SELECT * FROM `{$this->table}` WHERE $whereClause";
+
+            return $this->query($sql, $bindings);
         }
     }

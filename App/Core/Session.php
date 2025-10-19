@@ -10,81 +10,53 @@ class Session
     public static function start()
     {
         if (session_status() === PHP_SESSION_NONE) {
-            // Определяем, работаем ли мы в CLI-режиме
             self::$cliMode = (php_sapi_name() === 'cli');
 
             if (self::$cliMode) {
-                // В CLI-режиме используем массив вместо реальной сессии
                 if (empty(self::$cliSessionData)) {
                     self::$cliSessionData = ['created' => time()];
                 }
                 return;
             }
 
-            // Увеличиваем безопасность cookie
+            // Усиливаем безопасность cookie
             session_name('TESTSYSTEM_SID');
             $domain = self::getDomain();
             $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
                 (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
 
             $cookieParams = [
-                'lifetime' => 86400, // 24 часа
+                'lifetime' => 86400,
                 'path' => '/',
                 'domain' => $domain,
                 'secure' => $isSecure,
                 'httponly' => true,
-                'samesite' => 'Strict' // Изменено на Strict для большей безопасности
+                'samesite' => 'Lax' // Меняем на Lax для лучшей совместимости
             ];
 
             session_set_cookie_params($cookieParams);
 
-            // Устанавливаем путь сохранения сессий
-            $sessionPath = sys_get_temp_dir() . '/testsystem_sessions/';
-            if (!is_dir($sessionPath)) {
-                mkdir($sessionPath, 0755, true);
-            }
-            ini_set('session.save_path', $sessionPath);
+            // Дополнительные настройки безопасности
+            ini_set('session.use_strict_mode', '1');
+            ini_set('session.use_only_cookies', '1');
+            ini_set('session.cookie_httponly', '1');
+            ini_set('session.cookie_secure', $isSecure ? '1' : '0');
+            ini_set('session.use_trans_sid', '0');
+            ini_set('session.cookie_samesite', 'Lax');
 
-            // Увеличиваем безопасность сессий
-            ini_set('session.use_strict_mode', 1);
-            ini_set('session.use_only_cookies', 1);
-            ini_set('session.cookie_httponly', 1);
-            ini_set('session.cookie_secure', $isSecure ? 1 : 0);
-            ini_set('session.cookie_samesite', 'Strict');
-            ini_set('session.use_trans_sid', 0);
-
-            // Запускаем сессию
             if (!session_start()) {
                 throw new \RuntimeException('Failed to start session');
             }
 
-            // Защита от фиксации сессии - всегда регенерируем ID после создания
+            // Защита от session fixation
             if (empty($_SESSION['created'])) {
                 session_regenerate_id(true);
                 $_SESSION['created'] = time();
                 $_SESSION['user_agent'] = $_SERVER['HTTP_USER_AGENT'] ?? '';
-                $_SESSION['ip'] = $_SERVER['REMOTE_ADDR'] ?? '';
-            } else {
-                // Проверяем User-Agent и IP
-                $currentUserAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
-                $currentIp = $_SERVER['REMOTE_ADDR'] ?? '';
-
-                if ($_SESSION['user_agent'] !== $currentUserAgent || $_SESSION['ip'] !== $currentIp) {
-                    session_unset();
-                    session_destroy();
-                    self::start(); // Перезапускаем сессию
-                    return;
-                }
-
-                // Регенерируем ID каждые 15 минут для большей безопасности
-                if (time() - $_SESSION['created'] > 900) {
-                    session_regenerate_id(true);
-                    $_SESSION['created'] = time();
-                }
+                // НЕ сохраняем IP - это вызывает проблемы у пользователей
             }
         }
     }
-
     public static function regenerate()
     {
         if (!self::$cliMode && session_status() === PHP_SESSION_ACTIVE) {
@@ -133,15 +105,8 @@ class Session
             return;
         }
 
-        // Для HTTP-режима убедимся, что сессия активна
         if (session_status() === PHP_SESSION_ACTIVE) {
             $_SESSION[$key] = $value;
-
-            // Немедленно сохраняем изменения в сессии
-            session_write_close();
-
-            // И сразу же открываем сессию снова для последующих операций
-            session_start();
         } else {
             error_log("Cannot set session value: session is not active");
         }

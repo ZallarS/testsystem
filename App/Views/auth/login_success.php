@@ -6,7 +6,7 @@ use App\Core\User;
     <div class="auth-container compact">
         <div class="auth-header">
             <h2>Успешная авторизация</h2>
-            <p>Приветствуем, <?= htmlspecialchars(User::get('name')) ?>!</p>
+            <p>Приветствуем, <?= e(User::get('name')) ?>!</p>
         </div>
 
         <div class="auth-body">

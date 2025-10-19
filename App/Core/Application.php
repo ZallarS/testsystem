@@ -46,20 +46,29 @@
 
         public function handleException($exception)
         {
-            error_log("Uncaught exception: " . $exception->getMessage());
+            $errorId = uniqid('err_', true);
+            $errorMessage = $exception->getMessage();
+
+            error_log("Error ID: $errorId - " . $exception->getMessage());
+            error_log("Stack trace: " . $exception->getTraceAsString());
+
+            http_response_code(500);
 
             if ($this->isDevelopment()) {
-                $message = htmlspecialchars($exception->getMessage(), ENT_QUOTES, 'UTF-8');
-                $file = htmlspecialchars($exception->getFile(), ENT_QUOTES, 'UTF-8');
+                $message = e($errorMessage);
+                $file = e($exception->getFile());
                 $line = $exception->getLine();
-                $trace = htmlspecialchars($exception->getTraceAsString(), ENT_QUOTES, 'UTF-8');
+                $trace = e($exception->getTraceAsString());
 
                 echo "<h1>Error: " . $message . "</h1>";
                 echo "<p>File: " . $file . ":" . $line . "</p>";
+                echo "<p>Error ID: " . e($errorId) . "</p>";
                 echo "<pre>" . $trace . "</pre>";
             } else {
-                http_response_code(500);
-                echo "An error occurred. Please try again later.";
+                // В production показываем только общую ошибку
+                echo "An error occurred. Error ID: " . e($errorId);
+                // Логируем детали для администратора
+                error_log("Production error [{$errorId}]: " . $exception->getMessage());
             }
 
             exit(1);

@@ -125,13 +125,13 @@
                 return ['user']; // Роль по умолчанию
             }
 
-            // Если роли уже есть в сессии и не устарели, используем их
+            // Уменьшаем время кэширования ролей с 5 минут до 1 минуты
             if (isset($user['roles']) && isset($user['roles_updated']) &&
-                (time() - $user['roles_updated'] < 300)) { // 5 минут
+                (time() - $user['roles_updated'] < 60)) { // 1 минута вместо 5
                 return $user['roles'];
             }
 
-            // Иначе загружаем роли из базы данных
+            // Загружаем роли из базы данных
             $userId = $user['id'];
             $userModel = new \App\Models\User();
             $userData = $userModel->find($userId);
@@ -140,7 +140,6 @@
                 return ['user'];
             }
 
-            // Устанавливаем ID модели и получаем роли
             $userModel->id = $userId;
             $roles = $userModel->roles();
 
