@@ -35,11 +35,32 @@
 
         protected function jsonResponse($data, $statusCode = 200)
         {
-            return Response::json($data, $statusCode);
+            // Автоматически санитизируем данные для JSON
+            $safeData = $this->sanitizeForJson($data);
+            return Response::json($safeData, $statusCode);
+        }
+
+        private function sanitizeForJson($data)
+        {
+            if (is_array($data)) {
+                return array_map([$this, 'sanitizeForJson'], $data);
+            }
+
+            if (is_string($data)) {
+                // Экранируем для безопасного JSON
+                return htmlspecialchars($data, ENT_NOQUOTES, 'UTF-8');
+            }
+
+            return $data;
         }
 
         protected function viewResponse($view, $data = [], $statusCode = 200)
         {
+            // Автоматически добавляем CSRF-токен для форм
+            if (!isset($data['csrfToken'])) {
+                $data['csrfToken'] = \App\Core\CSRF::generateToken();
+            }
+
             return Response::view($view, $data, $statusCode);
         }
 

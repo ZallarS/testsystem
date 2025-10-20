@@ -8,28 +8,32 @@
     {
         public function handle($next)
         {
-            // Устанавливаем security headers
-            header("X-Content-Type-Options: nosniff");
-            header("X-Frame-Options: DENY");
-            header("X-XSS-Protection: 1; mode=block");
-            header("Referrer-Policy: strict-origin-when-cross-origin");
+            $response = $next();
 
-            // Content Security Policy
-            $nonce = base64_encode(random_bytes(16));
+            if ($response instanceof Response) {
+                // Устанавливаем security headers
+                header("X-Content-Type-Options: nosniff");
+                header("X-Frame-Options: DENY");
+                header("X-XSS-Protection: 1; mode=block");
+                header("Referrer-Policy: strict-origin-when-cross-origin");
 
-            $csp = [
-                "default-src 'self'",
-                "script-src 'self' 'nonce-$nonce'",
-                "style-src 'self' 'unsafe-inline'", // Разрешаем inline стили для совместимости
-                "img-src 'self' data: https:",
-                "object-src 'none'",
-                "base-uri 'self'",
-                "form-action 'self'",
-                "frame-ancestors 'none'"
-            ];
+                // Content Security Policy
+                $csp = [
+                    "default-src 'self'",
+                    "script-src 'self' 'unsafe-inline'", // unsafe-inline для простоты, но лучше убрать в production
+                    "style-src 'self' 'unsafe-inline'",
+                    "img-src 'self' data: https:",
+                    "font-src 'self'",
+                    "connect-src 'self'",
+                    "object-src 'none'",
+                    "base-uri 'self'",
+                    "form-action 'self'",
+                    "frame-ancestors 'none'"
+                ];
 
-            header("Content-Security-Policy: " . implode("; ", $csp));
+                header("Content-Security-Policy: " . implode("; ", $csp));
+            }
 
-            return $next();
+            return $response;
         }
     }

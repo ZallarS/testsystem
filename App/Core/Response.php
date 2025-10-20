@@ -21,7 +21,6 @@
         {
             $headers['Content-Type'] = 'application/json; charset=utf-8';
 
-            // Экранируем потенциально опасные данные
             $safeData = self::sanitizeJsonData($data);
 
             return new self(json_encode($safeData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP), $statusCode, $headers);
@@ -43,11 +42,26 @@
 
         public static function view($viewPath, $data = [], $statusCode = 200, $headers = [])
         {
+            // Устанавливаем правильный Content-Type
+            $headers['Content-Type'] = 'text/html; charset=utf-8';
+
             $renderer = new ViewRenderer();
 
             try {
+                // Рендерим основной контент
                 $content = $renderer->render($viewPath, $data);
-                return new self($content, $statusCode, $headers);
+
+                // Проверяем существование layout
+                $layoutFile = VIEWS_PATH . 'layout/main.php';
+                if (file_exists($layoutFile)) {
+                    // Рендерим layout с контентом
+                    $layoutData = array_merge($data, ['content' => $content]);
+                    $finalContent = $renderer->render('layout/main', $layoutData);
+                } else {
+                    $finalContent = $content;
+                }
+
+                return new self($finalContent, $statusCode, $headers);
             } catch (\Exception $e) {
                 error_log("View rendering error: " . $e->getMessage());
                 return new self("Error rendering view", 500, $headers);
@@ -89,12 +103,15 @@
         }
 
         public function send() {
+            // Устанавливаем статус код
             http_response_code($this->statusCode);
 
+            // Устанавливаем заголовки
             foreach ($this->headers as $name => $value) {
                 header("$name: $value");
             }
 
+            // Выводим контент
             echo $this->content;
         }
 

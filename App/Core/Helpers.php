@@ -33,6 +33,29 @@
             }
         }
 
+        public static function csrfField()
+        {
+            return '<input type="hidden" name="csrf_token" value="' . self::e(CSRF::generateToken()) . '">';
+        }
+
+        public static function methodField($method)
+        {
+            $allowedMethods = ['PUT', 'PATCH', 'DELETE'];
+            $method = strtoupper($method);
+
+            if (in_array($method, $allowedMethods)) {
+                return '<input type="hidden" name="_method" value="' . self::e($method) . '">';
+            }
+
+            return '';
+        }
+
+        public static function safeHtml($html)
+        {
+            $renderer = new ViewRenderer();
+            return $renderer->safeHtml($html);
+        }
+
         public static function removeDirectory($directory)
         {
             if (!is_dir($directory)) {

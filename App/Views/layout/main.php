@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= $title ?? 'My App' ?></title>
+    <title><?= \App\Core\Helpers::e($title ?? 'My App') ?></title>
     <style>
         * {
             margin: 0;
@@ -626,10 +626,10 @@
                 <div class="user-dropdown">
                     <button class="user-dropdown-toggle">
                         <div class="user-avatar">
-                            <?= e(strtoupper(substr(\App\Core\User::getName() ?? 'U', 0, 1))) ?>
+                            <?= \App\Core\Helpers::e(strtoupper(substr(\App\Core\User::getName() ?? 'U', 0, 1))) ?>
                         </div>
                         <div class="user-info-text">
-                            <span class="user-name"><?= e(\App\Core\User::getName() ?? 'Пользователь') ?></span>
+                            <span class="user-name"><?= \App\Core\Helpers::e(\App\Core\User::getName() ?? 'Пользователь') ?></span>
                             <?php if (\App\Core\User::isAdmin()): ?>
                                 <span class="user-role">Администратор</span>
                             <?php endif; ?>
