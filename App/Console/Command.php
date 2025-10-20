@@ -1,13 +1,13 @@
 <?php
 
-    namespace App\Console;
+    namespace App\Core\Console;
 
     abstract class Command
     {
         protected $name;
         protected $description;
 
-        abstract public function execute($input, $output);
+        abstract public function handle();
 
         public function getName()
         {
@@ -19,12 +19,23 @@
             return $this->description;
         }
 
-        protected function write($message, $output)
+        protected function info($message)
         {
-            if (is_object($output) && method_exists($output, 'writeln')) {
-                $output->writeln($message);
-            } else {
-                echo $message . PHP_EOL;
-            }
+            echo "\033[32m{$message}\033[0m" . PHP_EOL;
+        }
+
+        protected function error($message)
+        {
+            echo "\033[31m{$message}\033[0m" . PHP_EOL;
+        }
+
+        protected function warn($message)
+        {
+            echo "\033[33m{$message}\033[0m" . PHP_EOL;
+        }
+
+        protected function line($message)
+        {
+            echo $message . PHP_EOL;
         }
     }

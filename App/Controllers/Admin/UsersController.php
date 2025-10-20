@@ -98,6 +98,10 @@
                     return Response::redirect('/admin/users?error=Ошибка при удалении пользователя');
                 }
 
+                \App\Core\AuditLogger::log('user_deletion', [
+                    'deleted_user_id' => $userId
+                ], \App\Core\User::getId());
+
             } catch (\Exception $e) {
                 return $this->handleException($e, 'Failed to delete user');
             }
@@ -139,7 +143,11 @@
                 ];
 
                 $userId = $userService->createUser($userData);
-
+                \App\Core\AuditLogger::logUserCreation(
+                    \App\Core\User::getId(),
+                    $userId,
+                    ['name' => $userData['name'], 'email' => $userData['email']]
+                );
                 return $this->redirectResponse('/admin/users?message=Пользователь успешно создан');
 
             } catch (\Exception $e) {
@@ -196,6 +204,12 @@
                 }
 
                 $userService->updateUser($id, $userData);
+
+                \App\Core\AuditLogger::logUserUpdate(
+                    \App\Core\User::getId(),
+                    $id,
+                    $userData
+                );
 
                 return $this->redirectResponse('/admin/users?message=Пользователь успешно обновлен');
 

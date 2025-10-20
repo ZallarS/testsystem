@@ -2,41 +2,65 @@
 
     namespace App\Middleware;
 
+    use App\Core\RateLimiter;
     use App\Core\Response;
-    use App\Core\Session;
 
     class RateLimitMiddleware
     {
         private $maxAttempts;
-        private $timeWindow;
+        private $decayMinutes;
 
-        public function __construct($maxAttempts = 5, $timeWindow = 300)
+        public function __construct($maxAttempts = 60, $decayMinutes = 1)
         {
             $this->maxAttempts = $maxAttempts;
-            $this->timeWindow = $timeWindow;
+            $this->decayMinutes = $decayMinutes;
         }
 
-        public function handle($next)
+        public function handle($request, $next)
         {
-            $key = 'rate_limit_' . md5($_SERVER['REMOTE_ADDR'] . $_SERVER['REQUEST_URI']);
-            $now = time();
+            $key = $this->resolveRequestSignature($request);
+            $limiter = new RateLimiter($this->maxAttempts, $this->decayMinutes);
 
-            $attempts = Session::get($key, []);
-
-            // Удаляем старые попытки
-            $attempts = array_filter($attempts, function($time) use ($now) {
-                return $time > $now - $this->timeWindow;
-            });
-
-            // Проверяем, не превышен ли лимит
-            if (count($attempts) >= $this->maxAttempts) {
-                return Response::make('Too many requests', 429);
+            if ($limiter->tooManyAttempts($key)) {
+                return $this->buildResponse($limiter, $key);
             }
 
-            // Добавляем текущую попытку
-            $attempts[] = $now;
-            Session::set($key, $attempts);
+            $limiter->hit($key);
 
-            return $next();
+            $response = $next($request);
+
+            // Добавляем заголовки с информацией о лимитах
+            return $this->addHeaders(
+                $response,
+                $limiter->remaining($key),
+                $limiter->availableIn($key)
+            );
+        }
+
+        protected function resolveRequestSignature($request)
+        {
+            return sha1(
+                $request->getClientIp() .
+                '|' . $request->getPathInfo() .
+                '|' . $request->getMethod()
+            );
+        }
+
+        protected function buildResponse($limiter, $key)
+        {
+            $retryAfter = $limiter->availableIn($key);
+
+            return Response::json([
+                'error' => 'Too Many Requests',
+                'retry_after' => $retryAfter
+            ], 429)->withHeader('Retry-After', $retryAfter);
+        }
+
+        protected function addHeaders($response, $remaining, $retryAfter)
+        {
+            return $response
+                ->withHeader('X-RateLimit-Limit', $this->maxAttempts)
+                ->withHeader('X-RateLimit-Remaining', $remaining)
+                ->withHeader('X-RateLimit-Reset', time() + $retryAfter);
         }
     }

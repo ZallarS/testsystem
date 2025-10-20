@@ -49,49 +49,42 @@
 
         public function where($conditions, $params = [], $operator = 'AND')
         {
-            $whereClause = [];
+            $whereParts = [];
             $bindings = [];
 
-            foreach ($conditions as $key => $value) {
-                if (!$this->isValidColumnName($key)) {
-                    throw new \InvalidArgumentException("Invalid column name: {$key}");
+            foreach ($conditions as $field => $value) {
+                if (!$this->isValidColumnName($field)) {
+                    throw new \InvalidArgumentException("Invalid column name: $field");
                 }
 
-                // Дополнительная проверка для qualified names (table.column)
-                if (strpos($key, '.') !== false) {
-                    $parts = explode('.', $key);
-                    foreach ($parts as $part) {
-                        if (!$this->isValidColumnName($part)) {
-                            throw new \InvalidArgumentException("Invalid qualified column name: {$key}");
-                        }
-                    }
-                }
+                $paramName = ':' . str_replace('.', '_', $field);
 
                 if (is_array($value)) {
+                    // Handle IN clause safely
                     $placeholders = [];
                     foreach ($value as $index => $val) {
-                        $paramName = ":" . str_replace(['.', '-'], '_', $key) . "_{$index}";
-                        $placeholders[] = $paramName;
-                        $bindings[$paramName] = $val;
+                        $inParamName = $paramName . '_' . $index;
+                        $placeholders[] = $inParamName;
+                        $bindings[$inParamName] = $val;
                     }
-                    $whereClause[] = "`{$key}` IN (" . implode(', ', $placeholders) . ")";
+                    $whereParts[] = "`$field` IN (" . implode(', ', $placeholders) . ")";
                 } else {
-                    $paramName = ":" . str_replace(['.', '-'], '_', $key);
-                    $whereClause[] = "`{$key}` = {$paramName}";
+                    $whereParts[] = "`$field` = $paramName";
                     $bindings[$paramName] = $value;
                 }
             }
 
-            $whereClause = implode(" {$operator} ", $whereClause);
-            $sql = "SELECT * FROM `{$this->table}` WHERE {$whereClause}";
+            $whereClause = implode(" $operator ", $whereParts);
+            $sql = "SELECT * FROM `{$this->table}` WHERE $whereClause";
 
             $stmt = $this->db->prepare($sql);
             foreach ($bindings as $param => $value) {
-                $stmt->bindValue($param, $value);
+                $type = $this->getPdoType($value);
+                $stmt->bindValue($param, $value, $type);
             }
 
             $stmt->execute();
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            return $stmt->fetchAll(\PDO::FETCH_ASSOC);
         }
 
         protected function isValidColumnName($column)
@@ -189,20 +182,29 @@
             return \PDO::PARAM_STR;
         }
 
-        public function rawQuery($sql, $allowedPatterns = [])
+        public function rawQuery($sql, $params = [], $allowedOperations = [])
         {
-            // Запрещаем все опасные операции
+            // Строгая проверка разрешенных операций
+            $allowedOperations = array_merge(['SELECT'], $allowedOperations);
+
+            $firstWord = strtoupper(trim(explode(' ', $sql)[0]));
+
+            if (!in_array($firstWord, $allowedOperations)) {
+                throw new \InvalidArgumentException("Dangerous SQL operation: $firstWord");
+            }
+
+            // Проверка на опасные паттерны
             $dangerousPatterns = [
                 '/\b(DROP|DELETE|UPDATE|INSERT|ALTER|CREATE|TRUNCATE)\b/i'
             ];
 
             foreach ($dangerousPatterns as $pattern) {
-                if (preg_match($pattern, $sql)) {
-                    throw new \InvalidArgumentException("Dangerous SQL operation detected");
+                if (preg_match($pattern, $sql) && !in_array($firstWord, $allowedOperations)) {
+                    throw new \InvalidArgumentException("Potentially dangerous query detected");
                 }
             }
 
-            return $this->query($sql);
+            return $this->query($sql, $params);
         }
 
         private function isQueryAllowed($sql, $allowedPatterns)

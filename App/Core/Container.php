@@ -2,116 +2,96 @@
 
     namespace App\Core;
 
-    class Container {
+    class Container
+    {
+        private $bindings = [];
+        private $instances = [];
         private $aliases = [];
-        private $singletons = [];
-        private $services = [];
-        private $config = [];
+        private $resolvingCallbacks = [];
 
-        public function __construct() {
-            $this->loadConfig();
-        }
-
-        private function loadConfig() {
-            $configPath = BASE_PATH . '/config/';
-
-            // Проверяем существование директории config
-            if (!is_dir($configPath)) {
-                throw new \RuntimeException('Config directory not found: ' . $configPath);
-            }
-
-            $configFiles = glob($configPath . '*.php');
-
-            // Разрешаем только определенные конфигурационные файлы
-            $allowedConfigs = ['app', 'database'];
-
-            foreach ($configFiles as $configFile) {
-                $key = basename($configFile, '.php');
-
-                // Загружаем только разрешенные конфигурации
-                if (in_array($key, $allowedConfigs)) {
-                    // Проверяем, что файл находится в разрешенной директории
-                    $realConfigPath = realpath($configFile);
-                    if ($realConfigPath && strpos($realConfigPath, realpath($configPath)) === 0) {
-                        $this->config[$key] = $this->loadConfigFile($configFile);
-                    } else {
-                        throw new \RuntimeException('Invalid config file path: ' . $configFile);
-                    }
-                }
-            }
-        }
-
-        private function loadConfigFile($filePath)
+        public function bind($abstract, $concrete = null, $shared = false)
         {
-            // Изолируем загрузку конфигурации
-            return (function() use ($filePath) {
-                return require $filePath;
-            })();
+            if (is_null($concrete)) {
+                $concrete = $abstract;
+            }
+
+            $this->bindings[$abstract] = [
+                'concrete' => $concrete,
+                'shared' => $shared
+            ];
         }
 
-        public function set($name, $value) {
-            $this->services[$name] = $value;
-        }
-
-        public function alias($abstract, $concrete)
+        public function singleton($abstract, $concrete = null)
         {
-            $this->aliases[$abstract] = $concrete;
+            $this->bind($abstract, $concrete, true);
         }
 
-        public function singleton($name, $concrete = null)
+        public function instance($abstract, $instance)
         {
-            if ($concrete === null) {
-                $concrete = $name;
-            }
-            $this->singletons[$name] = $concrete;
+            $this->instances[$abstract] = $instance;
         }
 
-        public function get($name)
+        public function alias($abstract, $alias)
         {
-            // Проверяем алиасы
-            if (isset($this->aliases[$name])) {
-                $name = $this->aliases[$name];
-            }
-
-            if (isset($this->services[$name])) {
-                return $this->services[$name];
-            }
-
-            // Проверяем синглтоны
-            if (isset($this->singletons[$name]) && isset($this->services[$this->singletons[$name]])) {
-                return $this->services[$this->singletons[$name]];
-            }
-
-            // Автоматическое создание с внедрением зависимостей
-            if (class_exists($name)) {
-                $service = $this->build($name);
-
-                // Регистрируем синглтон если нужно
-                if (isset($this->singletons[$name])) {
-                    $this->services[$name] = $service;
-                }
-
-                return $service;
-            }
-
-            return null;
+            $this->aliases[$alias] = $abstract;
         }
 
-        private function build($class)
+        public function get($abstract)
         {
-            $reflector = new \ReflectionClass($class);
+            // Resolve aliases
+            $abstract = $this->getAlias($abstract);
+
+            // Return existing instance
+            if (isset($this->instances[$abstract])) {
+                return $this->instances[$abstract];
+            }
+
+            // Get binding
+            $binding = $this->getBinding($abstract);
+
+            // Build instance
+            $object = $this->build($binding['concrete']);
+
+            // Store if shared
+            if ($binding['shared']) {
+                $this->instances[$abstract] = $object;
+            }
+
+            // Call resolving callbacks
+            $this->fireResolvingCallbacks($abstract, $object);
+
+            return $object;
+        }
+
+        private function build($concrete)
+        {
+            if (is_callable($concrete)) {
+                return $concrete($this);
+            }
+
+            if (!class_exists($concrete)) {
+                throw new \Exception("Class {$concrete} does not exist");
+            }
+
+            $reflector = new \ReflectionClass($concrete);
 
             if (!$reflector->isInstantiable()) {
-                throw new \Exception("Class {$class} is not instantiable");
+                throw new \Exception("Class {$concrete} is not instantiable");
             }
 
             $constructor = $reflector->getConstructor();
 
             if (is_null($constructor)) {
-                return new $class;
+                return new $concrete;
             }
 
-            $parameters = $constructor->getParameters();
+            $dependencies = $this->resolveDependencies($constructor->getParameters());
+
+            return $reflector->newInstanceArgs($dependencies);
+        }
+
+        private function resolveDependencies(array $parameters)
+        {
             $dependencies = [];
 
             foreach ($parameters as $parameter) {
@@ -128,25 +108,38 @@
                 }
             }
 
-            return $reflector->newInstanceArgs($dependencies);
+            return $dependencies;
         }
 
-        public function config($key, $default = null) {
-            $keys = explode('.', $key);
-            $value = $this->config;
+        private function getAlias($abstract)
+        {
+            return $this->aliases[$abstract] ?? $abstract;
+        }
 
-            // Защита от directory traversal в ключах конфигурации
-            foreach ($keys as $k) {
-                if (!is_array($value) || !isset($value[$k])) {
-                    return $default;
-                }
-                $value = $value[$k];
+        private function getBinding($abstract)
+        {
+            if (!isset($this->bindings[$abstract])) {
+                // Auto-bind if not registered
+                return ['concrete' => $abstract, 'shared' => false];
             }
 
-            return $value;
+            return $this->bindings[$abstract];
         }
 
-        public function has($name) {
-            return isset($this->services[$name]) || class_exists($name);
+        private function fireResolvingCallbacks($abstract, $object)
+        {
+            foreach ($this->resolvingCallbacks as $callback) {
+                call_user_func($callback, $object, $this);
+            }
+        }
+
+        public function resolving($callback)
+        {
+            $this->resolvingCallbacks[] = $callback;
+        }
+
+        public function has($abstract)
+        {
+            return isset($this->bindings[$abstract]) || isset($this->instances[$abstract]);
         }
     }

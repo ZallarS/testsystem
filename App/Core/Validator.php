@@ -4,155 +4,137 @@
 
     class Validator
     {
-        private static $xssPatterns = [
-            '/javascript:/i',
-            '/vbscript:/i',
-            '/onclick|onload|onerror|onmouse|onkey/i',
-            '/<script/i',
-            '/<iframe/i',
-            '/<object/i',
-            '/<embed/i'
-        ];
+        private $rules = [];
+        private $errors = [];
+        private $data = [];
 
-        public static function sanitizeInput($input, $context = 'html')
+        public function validate(array $data, array $rules, array $messages = [])
         {
-            if (is_array($input)) {
-                return array_map(function($item) use ($context) {
-                    return self::sanitizeInput($item, $context);
-                }, $input);
-            }
-
-            if (!is_string($input)) {
-                return $input;
-            }
-
-            $clean = trim($input);
-
-            // Remove control characters
-            $clean = preg_replace('/[\x00-\x1F\x7F]/u', '', $clean);
-
-            // Context-specific sanitization
-            switch ($context) {
-                case 'html':
-                    $clean = htmlspecialchars($clean, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                    break;
-                case 'sql':
-                    // For SQL, we rely on prepared statements, but basic cleaning
-                    $clean = preg_replace('/[\x00-\x1F\x7F]/u', '', $clean);
-                    break;
-                case 'js':
-                    $clean = json_encode($clean, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
-                    $clean = substr($clean, 1, -1); // Remove quotes
-                    break;
-                case 'filename':
-                    $clean = preg_replace('/[^a-zA-Z0-9._-]/', '', $clean);
-                    break;
-                case 'email':
-                    $clean = filter_var($clean, FILTER_SANITIZE_EMAIL);
-                    break;
-                case 'url':
-                    $clean = filter_var($clean, FILTER_SANITIZE_URL);
-                    break;
-                default:
-                    $clean = htmlspecialchars($clean, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            }
-
-            return $clean;
-        }
-
-        public static function validateXss($input)
-        {
-            if (is_array($input)) {
-                foreach ($input as $value) {
-                    if (self::validateXss($value)) {
-                        return true;
-                    }
-                }
-                return false;
-            }
-
-            if (!is_string($input)) {
-                return false;
-            }
-
-            foreach (self::$xssPatterns as $pattern) {
-                if (preg_match($pattern, $input)) {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        public static function validateContext(array $data, array $rules, $context = 'default')
-        {
-            $errors = [];
-            $sanitizedData = [];
+            $this->data = $data;
+            $this->errors = [];
 
             foreach ($rules as $field => $ruleSet) {
                 $rules = explode('|', $ruleSet);
-                $value = $data[$field] ?? null;
-
-                // Sanitize based on context
-                $sanitizedValue = self::sanitizeInput($value, $context);
-                $sanitizedData[$field] = $sanitizedValue;
 
                 foreach ($rules as $rule) {
-                    $error = self::validateRule($field, $sanitizedValue, $rule, $context);
-                    if ($error) {
-                        $errors[$field][] = $error;
-                    }
+                    $this->validateField($field, $rule, $messages);
                 }
             }
 
-            return [$errors, $sanitizedData];
+            return $this->errors;
         }
 
-        private static function validateRule($field, $value, $rule, $context)
+        private function validateField($field, $rule, $messages)
         {
-            if ($rule === 'required' && (empty($value) && $value !== '0')) {
-                return "Поле $field обязательно для заполнения";
+            $value = $this->getValue($field);
+            $ruleName = $rule;
+            $parameters = [];
+
+            if (strpos($rule, ':') !== false) {
+                [$ruleName, $paramString] = explode(':', $rule, 2);
+                $parameters = explode(',', $paramString);
             }
 
-            if (empty($value) && $value !== '0') {
-                return null;
-            }
+            $method = 'validate' . str_replace(' ', '', ucwords(str_replace('_', ' ', $ruleName)));
 
-            // XSS validation for all contexts
-            if (self::validateXss($value)) {
-                return "Поле $field содержит потенциально опасный контент";
+            if (method_exists($this, $method)) {
+                if (!$this->$method($field, $value, $parameters)) {
+                    $messageKey = "{$field}.{$ruleName}";
+                    $this->addError($field, $messages[$messageKey] ?? $this->getDefaultMessage($ruleName, $field, $parameters));
+                }
             }
-
-            switch ($rule) {
-                case 'email':
-                    if (!filter_var($value, FILTER_VALIDATE_EMAIL)) {
-                        return "Поле $field должно содержать valid email";
-                    }
-                    break;
-                case 'min:8':
-                    if (strlen($value) < 8) {
-                        return "Поле $field должно содержать минимум 8 символов";
-                    }
-                    break;
-                case 'strong_password':
-                    if (!self::isStrongPassword($value)) {
-                        return "Пароль должен содержать заглавные и строчные буквы, цифры и специальные символы";
-                    }
-                    break;
-            }
-
-            return null;
         }
 
-        private static function isStrongPassword($password)
+        private function validateRequired($field, $value, $parameters)
         {
-            if (strlen($password) < 10) return false;
-            if (!preg_match('/[A-Z]/', $password)) return false;
-            if (!preg_match('/[a-z]/', $password)) return false;
-            if (!preg_match('/[0-9]/', $password)) return false;
-            if (!preg_match('/[^A-Za-z0-9]/', $password)) return false;
+            return !empty($value) || $value === '0';
+        }
 
-            $commonPasswords = ['password', '123456', 'qwerty', 'letmein', 'welcome'];
-            return !in_array(strtolower($password), $commonPasswords);
+        private function validateEmail($field, $value, $parameters)
+        {
+            return filter_var($value, FILTER_VALIDATE_EMAIL) !== false;
+        }
+
+        private function validateMin($field, $value, $parameters)
+        {
+            $min = $parameters[0] ?? 0;
+            return strlen($value) >= $min;
+        }
+
+        private function validateMax($field, $value, $parameters)
+        {
+            $max = $parameters[0] ?? PHP_INT_MAX;
+            return strlen($value) <= $max;
+        }
+
+        private function validateStrongPassword($field, $value, $parameters)
+        {
+            return preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\da-zA-Z]).{8,}$/', $value);
+        }
+
+        private function validateConfirmed($field, $value, $parameters)
+        {
+            $confirmationField = $field . '_confirmation';
+            return $value === $this->getValue($confirmationField);
+        }
+
+        private function validateUnique($field, $value, $parameters)
+        {
+            // Реализация проверки уникальности в базе данных
+            // Параметры: table,column (optional)
+            $table = $parameters[0] ?? null;
+            $column = $parameters[1] ?? $field;
+
+            if (!$table) {
+                return true;
+            }
+
+            // Здесь должна быть проверка в базе данных
+            // Возвращаем true для примера
+            return true;
+        }
+
+        private function getValue($field)
+        {
+            return $this->data[$field] ?? null;
+        }
+
+        private function addError($field, $message)
+        {
+            if (!isset($this->errors[$field])) {
+                $this->errors[$field] = [];
+            }
+
+            $this->errors[$field][] = $message;
+        }
+
+        private function getDefaultMessage($rule, $field, $parameters)
+        {
+            $messages = [
+                'required' => "The {$field} field is required.",
+                'email' => "The {$field} must be a valid email address.",
+                'min' => "The {$field} must be at least {$parameters[0]} characters.",
+                'max' => "The {$field} may not be greater than {$parameters[0]} characters.",
+                'strong_password' => "The password must contain uppercase, lowercase, numbers, and special characters.",
+                'confirmed' => "The {$field} confirmation does not match.",
+                'unique' => "The {$field} has already been taken."
+            ];
+
+            return $messages[$rule] ?? "The {$field} field is invalid.";
+        }
+
+        public function passes()
+        {
+            return empty($this->errors);
+        }
+
+        public function fails()
+        {
+            return !$this->passes();
+        }
+
+        public function errors()
+        {
+            return $this->errors;
         }
     }

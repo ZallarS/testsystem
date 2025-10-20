@@ -124,9 +124,7 @@
             http_response_code($this->statusCode);
 
             // Add security headers to all responses
-            $this->headers['X-Frame-Options'] = 'DENY';
-            $this->headers['X-XSS-Protection'] = '1; mode=block';
-            $this->headers['X-Content-Type-Options'] = 'nosniff';
+            $this->addSecurityHeaders();
 
             foreach ($this->headers as $name => $value) {
                 header("$name: $value");
@@ -135,7 +133,68 @@
             echo $this->content;
         }
 
-        private static function addSecurityHeaders(&$headers)
+        public function withHeader($name, $value)
+        {
+            $this->headers[$name] = $value;
+            return $this;
+        }
+
+        public function withCookie($name, $value, $minutes = 0, $path = '/', $domain = '', $secure = false, $httpOnly = true)
+        {
+            $expire = $minutes > 0 ? time() + ($minutes * 60) : 0;
+
+            setcookie($name, $value, $expire, $path, $domain, $secure, $httpOnly);
+            return $this;
+        }
+
+        public function getStatusCode()
+        {
+            return $this->statusCode;
+        }
+
+        public function getContent()
+        {
+            return $this->content;
+        }
+
+        public static function download($filePath, $fileName = null, $headers = [])
+        {
+            if (!file_exists($filePath)) {
+                return new self('File not found', 404);
+            }
+
+            $fileName = $fileName ?: basename($filePath);
+            $fileSize = filesize($filePath);
+
+            $headers = array_merge([
+                'Content-Type' => 'application/octet-stream',
+                'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+                'Content-Length' => $fileSize,
+                'Pragma' => 'no-cache',
+                'Expires' => '0',
+            ], $headers);
+
+            $content = file_get_contents($filePath);
+
+            return new self($content, 200, $headers);
+        }
+
+        public static function noContent()
+        {
+            return new self('', 204);
+        }
+
+        public static function created($data = null)
+        {
+            return self::json($data, 201);
+        }
+
+        public static function accepted($data = null)
+        {
+            return self::json($data, 202);
+        }
+
+        private function addSecurityHeaders()
         {
             $securityHeaders = [
                 'X-Frame-Options' => 'DENY',
@@ -146,8 +205,8 @@
             ];
 
             foreach ($securityHeaders as $key => $value) {
-                if (!isset($headers[$key])) {
-                    $headers[$key] = $value;
+                if (!isset($this->headers[$key])) {
+                    header("$key: $value");
                 }
             }
         }

@@ -8,6 +8,10 @@
     use App\Core\Validator;
     use App\Models\User as UserModel;
 
+    use App\Jobs\SendWelcomeEmail;
+    use App\Core\Queue\Queue;
+
+
     class AuthController extends Controller
     {
         private $userModel;
@@ -35,7 +39,8 @@
             if (\App\Core\User::isLoggedIn()) {
                 return \App\Core\Response::redirect('/');
             }
-
+            $queue = new Queue();
+            $queue->push(SendWelcomeEmail::class, ['user_id' => $userId]);
             return $this->view('auth/register', [
                 'title' => 'Регистрация - My Application',
                 'errors' => []
@@ -84,6 +89,7 @@
 
             if (!$passwordValid) {
                 error_log("Invalid credentials for email: $email");
+                \App\Core\AuditLogger::logLogin(null, $email, false);
                 return $this->view('auth/login', [
                     'error' => 'Invalid email or password',
                     'email' => $email,
@@ -112,6 +118,8 @@
                 'name' => $userWithRoles['name'],
                 'roles' => $userWithRoles['roles']
             ]);
+            \App\Core\AuditLogger::logLogin($userWithRoles['id'], $email, true);
+
 
             return $this->view('auth/login_success', [
                 'title' => 'Login Successful - My Application'
@@ -209,6 +217,7 @@
         public function logout()
         {
             User::logout();
+            \App\Core\AuditLogger::logLogout(\App\Core\User::getId());
             return Response::redirect('/');
         }
 

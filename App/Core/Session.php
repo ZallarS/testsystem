@@ -335,4 +335,68 @@
 
             return true;
         }
+
+        public static function secureSessionStart()
+        {
+            // Prevent session fixation
+            ini_set('session.use_strict_mode', '1');
+            ini_set('session.use_only_cookies', '1');
+            ini_set('session.cookie_httponly', '1');
+            ini_set('session.cookie_secure', self::isSecure() ? '1' : '0');
+            ini_set('session.use_trans_sid', '0');
+            ini_set('session.cookie_samesite', 'Strict');
+
+            // Session configuration
+            ini_set('session.gc_maxlifetime', 3600); // 1 hour
+            ini_set('session.cookie_lifetime', 0); // Until browser closes
+
+            // Additional security headers
+            session_set_cookie_params([
+                'lifetime' => 0,
+                'path' => '/',
+                'domain' => self::getDomain(),
+                'secure' => self::isSecure(),
+                'httponly' => true,
+                'samesite' => 'Strict'
+            ]);
+        }
+
+        public static function validateSessionSecurity()
+        {
+            // Validate session regeneration frequency
+            $lastRegeneration = $_SESSION['regenerated_at'] ?? 0;
+            if (time() - $lastRegeneration > 300) { // 5 minutes
+                self::regenerate(true);
+            }
+
+            // Validate session inactivity
+            $lastActivity = $_SESSION['last_activity'] ?? 0;
+            if (time() - $lastActivity > 1800) { // 30 minutes
+                self::destroy();
+                throw new \RuntimeException('Session expired due to inactivity');
+            }
+
+            // Update last activity
+            $_SESSION['last_activity'] = time();
+        }
+
+        public static function generateSessionFingerprint()
+        {
+            $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+            $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+            $acceptLanguage = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '';
+
+            return hash('sha256', $userAgent . $ip . $acceptLanguage . self::getAppSecret());
+        }
+
+        public static function validateSessionFingerprint()
+        {
+            $currentFingerprint = self::generateSessionFingerprint();
+            $storedFingerprint = $_SESSION['fingerprint'] ?? '';
+
+            if (!hash_equals($storedFingerprint, $currentFingerprint)) {
+                self::destroy();
+                throw new \RuntimeException('Session fingerprint validation failed');
+            }
+        }
     }
