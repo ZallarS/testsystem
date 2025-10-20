@@ -55,6 +55,11 @@
 
         private static function logException($exception, $errorId)
         {
+            // Создаем директорию логов, если она не существует
+            if (!is_dir(self::$logPath)) {
+                mkdir(self::$logPath, 0755, true);
+            }
+
             $logMessage = sprintf(
                 "[%s] Error ID: %s - %s in %s:%d\nStack trace:\n%s\n\n",
                 date('Y-m-d H:i:s'),
@@ -67,12 +72,46 @@
 
             $logFile = self::$logPath . '/error-' . date('Y-m-d') . '.log';
 
-            error_log($logMessage, 3, $logFile);
+            // Добавляем проверку возможности записи
+            if (is_writable(self::$logPath)) {
+                error_log($logMessage, 3, $logFile);
+            } else {
+                // Fallback: запись в системный лог
+                error_log("Cannot write to log file: " . self::$logPath);
+                error_log($logMessage); // Пишем в системный лог
+            }
 
-            // Also log to system log for critical errors
+            // Также логируем критические ошибки
             if ($exception instanceof \ErrorException && in_array($exception->getSeverity(), [E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR])) {
                 error_log("Critical error [{$errorId}]: " . $exception->getMessage());
             }
+        }
+
+        private static function handleBasicError($message)
+        {
+            if (php_sapi_name() === 'cli') {
+                echo "Error: $message\n";
+            } else {
+                echo "<!DOCTYPE html>
+        <html>
+        <head>
+            <title>Error</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 40px; text-align: center; }
+                .error-container { max-width: 500px; margin: 0 auto; }
+                .error-title { color: #e74c3c; }
+            </style>
+        </head>
+        <body>
+            <div class='error-container'>
+                <h1 class='error-title'>Application Error</h1>
+                <p>$message</p>
+                <p>Please check server logs and permissions.</p>
+            </div>
+        </body>
+        </html>";
+            }
+            exit(1);
         }
 
         private static function sendErrorResponse($exception, $errorId)

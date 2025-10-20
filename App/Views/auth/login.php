@@ -14,7 +14,7 @@
         <?php endif; ?>
 
         <form method="POST" action="/login" autocomplete="on">
-            <input type="hidden" name="csrf_token" value="<?= \App\Core\CSRF::generateToken() ?>">
+            <?= \App\Core\Helpers::csrfField() ?>
 
             <div class="form-group">
                 <label for="email">Email</label>

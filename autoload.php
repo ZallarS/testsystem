@@ -53,3 +53,33 @@
         }
     }
 
+// Загружаем переменные окружения до инициализации приложения
+$envFile = BASE_PATH . '/.env';
+if (file_exists($envFile)) {
+    \App\Core\Env::load($envFile);
+} else {
+    // В development режиме создаем .env автоматически
+    if (php_sapi_name() === 'cli' || ($_SERVER['HTTP_HOST'] ?? '') === 'localhost') {
+        $defaultEnv = "APP_ENV=development\nAPP_SECRET=dev-" . bin2hex(random_bytes(16)) . "\nAPP_DEBUG=true\nDB_HOST=localhost\nDB_DATABASE=testsystem\nDB_USERNAME=root\nDB_PASSWORD=";
+        file_put_contents($envFile, $defaultEnv);
+        \App\Core\Env::load($envFile);
+        error_log("Auto-created .env file for development");
+    }
+}
+
+// Создаем необходимые директории
+$directories = [
+    STORAGE_PATH,
+    STORAGE_PATH . '/logs',
+    STORAGE_PATH . '/cache',
+    STORAGE_PATH . '/sessions',
+    STORAGE_PATH . '/backups'
+];
+
+foreach ($directories as $directory) {
+    if (!is_dir($directory)) {
+        mkdir($directory, 0755, true);
+    }
+}
+\App\Core\AuditLogger::initialize();
+

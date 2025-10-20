@@ -260,17 +260,35 @@
          */
         public function getUserWithRoles($userId)
         {
-            $user = $this->userModel->find($userId);
+            try {
+                // Получаем базовые данные пользователя
+                $user = $this->userModel->find($userId);
 
-            if (!$user) {
+                if (!$user) {
+                    return null;
+                }
+
+                // Получаем роли пользователя
+                $userModelInstance = new \App\Models\User();
+
+                // ВМЕСТО: $userModelInstance->id = $userId; (строка 270)
+                // ИСПОЛЬЗУЙТЕ: устанавливаем ID через сеттер или конструктор
+                $userModelInstance->setId($userId);
+
+                // ИЛИ альтернативно: создайте метод для установки ID
+                // $userModelInstance->setUserId($userId);
+
+                $roles = $userModelInstance->roles();
+
+                // Объединяем данные пользователя с ролями
+                return array_merge($user, [
+                    'roles' => $roles
+                ]);
+
+            } catch (\Exception $e) {
+                error_log("Error getting user with roles: " . $e->getMessage());
                 return null;
             }
-
-            $userModelInstance = new User();
-            $userModelInstance->id = $user['id'];
-            $user['roles'] = $userModelInstance->roles();
-
-            return $user;
         }
 
         /**

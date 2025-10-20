@@ -123,6 +123,39 @@
             return $messages[$rule] ?? "The {$field} field is invalid.";
         }
 
+        public static function sanitizeInput($value, $type = 'general')
+        {
+            if (is_array($value)) {
+                return array_map(function($item) use ($type) {
+                    return self::sanitizeInput($item, $type);
+                }, $value);
+            }
+
+            if (!is_string($value)) {
+                return $value;
+            }
+
+            switch ($type) {
+                case 'sql':
+                    // Базовая защита от SQL-инъекций
+                    // В реальном приложении используйте подготовленные запросы
+                    return str_replace(
+                        ['\\', '\'', '"', '\0', '\n', '\r', '\x1a'],
+                        ['\\\\', '\\\'', '\\"', '\\0', '\\n', '\\r', '\\Z'],
+                        $value
+                    );
+
+                case 'html':
+                    return htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+                case 'general':
+                default:
+                    // Убираем лишние пробелы и экранируем HTML
+                    $value = trim($value);
+                    return htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            }
+        }
+
         public function passes()
         {
             return empty($this->errors);

@@ -18,6 +18,7 @@
                 error_reporting(E_ALL & ~E_DEPRECATED & ~E_STRICT);
             }
 
+            // Регистрируем обработчики ошибок
             ErrorHandler::register();
         }
     }

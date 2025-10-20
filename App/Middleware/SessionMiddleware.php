@@ -8,11 +8,11 @@
     {
         public function handle($next)
         {
-            // Автоматически запускаем сессию для каждого HTTP-запроса
-            if (php_sapi_name() !== 'cli') {
-                Session::start();
-            }
+            // Просто запускаем сессию - PHP автоматически сохранит ее в конце запроса
+            Session::start();
 
-            return $next();
+            $response = $next();
+
+            return $response;
         }
     }

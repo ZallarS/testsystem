@@ -124,13 +124,30 @@
             http_response_code($this->statusCode);
 
             // Add security headers to all responses
-            $this->addSecurityHeaders();
+            $this->addSecurityHeadersToResponse();
 
             foreach ($this->headers as $name => $value) {
                 header("$name: $value");
             }
 
             echo $this->content;
+        }
+
+        private function addSecurityHeadersToResponse()
+        {
+            $securityHeaders = [
+                'X-Frame-Options' => 'DENY',
+                'X-XSS-Protection' => '1; mode=block',
+                'X-Content-Type-Options' => 'nosniff',
+                'Referrer-Policy' => 'strict-origin-when-cross-origin',
+                'Strict-Transport-Security' => 'max-age=31536000; includeSubDomains',
+            ];
+
+            foreach ($securityHeaders as $key => $value) {
+                if (!isset($this->headers[$key])) {
+                    header("$key: $value");
+                }
+            }
         }
 
         public function withHeader($name, $value)
@@ -194,7 +211,7 @@
             return self::json($data, 202);
         }
 
-        private function addSecurityHeaders()
+        private static function addSecurityHeaders(&$headers = [])
         {
             $securityHeaders = [
                 'X-Frame-Options' => 'DENY',
@@ -205,8 +222,8 @@
             ];
 
             foreach ($securityHeaders as $key => $value) {
-                if (!isset($this->headers[$key])) {
-                    header("$key: $value");
+                if (!isset($headers[$key])) {
+                    $headers[$key] = $value;
                 }
             }
         }

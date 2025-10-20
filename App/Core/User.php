@@ -59,8 +59,15 @@
 
         public static function logout()
         {
+            error_log("User::logout() called");
+
+            // Получаем ID пользователя перед выходом для логов
+            $userId = self::getId();
+
             \App\Core\Session::destroy();
             self::$sessionStarted = false;
+
+            error_log("User::logout() - User {$userId} logged out, session destroyed");
         }
 
         public static function get($key = null)
@@ -97,7 +104,7 @@
 
         public static function set($key, $value)
         {
-            self::start();
+            self::initSession();
 
             if (self::$cliMode) {
                 self::$cliSessionData[$key] = $value;
@@ -109,11 +116,9 @@
                 $_SESSION[$key] = $value;
                 error_log("Session data set for key '$key': " . print_r($value, true));
 
-                // Немедленно сохраняем изменения в сессии
-                session_write_close();
-
-                // И сразу же открываем сессию снова для последующих операций
-                session_start();
+                // УДАЛИТЕ эти строки:
+                // session_write_close();
+                // session_start();
             } else {
                 error_log("Cannot set session value: session is not active");
             }

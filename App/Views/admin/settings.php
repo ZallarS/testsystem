@@ -13,7 +13,7 @@
             <h2>Основные настройки</h2>
 
             <form method="POST" action="/admin/settings">
-                <input type="hidden" name="csrf_token" value="<?= \App\Core\CSRF::generateToken() ?>">
+                <?= \App\Core\Helpers::csrfField() ?>
 
                 <div class="form-group">
                     <label for="site_name">Название сайта</label>

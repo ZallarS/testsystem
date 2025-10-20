@@ -19,7 +19,7 @@
         <?php endif; ?>
 
         <form method="POST" action="/register">
-            <input type="hidden" name="csrf_token" value="<?= \App\Core\CSRF::generateToken() ?>">
+            <?= \App\Core\Helpers::csrfField() ?>
 
             <div class="form-group">
                 <label for="name">Имя</label>

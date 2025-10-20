@@ -8,10 +8,18 @@
     class User extends Model
     {
         protected $table = 'users';
+        protected $primaryKey = 'id';
 
         // Константы ролей
         const ROLE_USER = 'user';
         const ROLE_ADMIN = 'admin';
+
+        public $id;
+        public $name;
+        public $email;
+        public $password;
+        public $created_at;
+        public $updated_at;
 
         public function roles()
         {
@@ -32,6 +40,12 @@
                 error_log("Error fetching roles for user {$this->id}: " . $e->getMessage());
                 return [];
             }
+        }
+
+        public function setId($id)
+        {
+            $this->id = $id;
+            return $this;
         }
 
         public function findByEmail($email)

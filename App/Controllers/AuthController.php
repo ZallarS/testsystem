@@ -216,8 +216,14 @@
 
         public function logout()
         {
-            User::logout();
-            \App\Core\AuditLogger::logLogout(\App\Core\User::getId());
+            error_log("=== LOGOUT PROCESS STARTED ===");
+            error_log("Before logout - User ID: " . (\App\Core\User::getId() ?? 'none'));
+
+            \App\Core\User::logout();
+
+            error_log("After logout - Session destroyed");
+            error_log("=== LOGOUT PROCESS COMPLETED ===");
+
             return Response::redirect('/');
         }
 

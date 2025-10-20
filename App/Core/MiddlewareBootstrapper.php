@@ -8,11 +8,13 @@
         {
             $router = $app->getRouter();
 
-            // Register global middleware
+            // Register global middleware - ВАЖНО: SessionMiddleware должен быть ПЕРВЫМ
             $router->middleware([
-                new \App\Middleware\SessionMiddleware(),
+                new \App\Middleware\SessionMiddleware(),    // ДОЛЖЕН БЫТЬ ПЕРВЫМ
                 new \App\Middleware\VerifyCsrfToken(),
                 new \App\Middleware\SecurityHeadersMiddleware(),
             ]);
+
+            error_log("Middleware order: Session -> VerifyCsrfToken -> SecurityHeaders");
         }
     }

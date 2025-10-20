@@ -57,7 +57,8 @@
 
         public static function csrfField()
         {
-            return '<input type="hidden" name="csrf_token" value="' . self::e(CSRF::generateToken()) . '">';
+            $token = \App\Core\CSRF::generateToken();
+            return '<input type="hidden" name="csrf_token" value="' . self::e($token) . '">';
         }
 
         public static function methodField($method)

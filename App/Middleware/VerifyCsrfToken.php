@@ -19,8 +19,11 @@
 
             // Расширяем список безопасных методов
             if (in_array($requestMethod, ['GET', 'HEAD', 'OPTIONS']) || $this->isExcluded($requestUri)) {
+                error_log("CSRF: Skipping check for method: $requestMethod, URI: $requestUri");
                 return $next();
             }
+
+            error_log("CSRF: Starting validation for $requestMethod $requestUri");
 
             // Усиливаем проверку Origin
             if (!$this->isValidOrigin()) {
@@ -29,9 +32,11 @@
             }
 
             $token = $this->getTokenFromRequest();
+            error_log("CSRF: Token extracted: " . ($token ? substr($token, 0, 10) . "..." : "EMPTY"));
 
             try {
                 \App\Core\CSRF::validateToken($token);
+                error_log("CSRF: Validation successful");
             } catch (\Exception $e) {
                 error_log("CSRF validation failed: " . $e->getMessage());
                 return Response::make('CSRF token validation failed', 403);
@@ -87,8 +92,14 @@
         private function getTokenFromRequest()
         {
             // Приоритет: заголовок > POST > GET
-            return $_SERVER['HTTP_X_CSRF_TOKEN'] ??
+            $token = $_SERVER['HTTP_X_CSRF_TOKEN'] ??
                 ($_POST['csrf_token'] ??
                     ($_GET['csrf_token'] ?? ''));
+
+            error_log("CSRF Debug - POST: " . ($_POST['csrf_token'] ?? 'NOT SET'));
+            error_log("CSRF Debug - GET: " . ($_GET['csrf_token'] ?? 'NOT SET'));
+            error_log("CSRF Debug - Header: " . ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? 'NOT SET'));
+
+            return $token;
         }
     }
