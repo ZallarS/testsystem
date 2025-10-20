@@ -20,6 +20,10 @@
         public static function json($data, $statusCode = 200, $headers = [])
         {
             $headers['Content-Type'] = 'application/json; charset=utf-8';
+            $headers['X-Content-Type-Options'] = 'nosniff';
+
+            // Security headers
+            self::addSecurityHeaders($headers);
 
             $safeData = self::sanitizeJsonData($data);
 
@@ -42,19 +46,18 @@
 
         public static function view($viewPath, $data = [], $statusCode = 200, $headers = [])
         {
-            // Устанавливаем правильный Content-Type
             $headers['Content-Type'] = 'text/html; charset=utf-8';
+
+            // Security headers
+            self::addSecurityHeaders($headers);
 
             $renderer = new ViewRenderer();
 
             try {
-                // Рендерим основной контент
                 $content = $renderer->render($viewPath, $data);
 
-                // Проверяем существование layout
                 $layoutFile = VIEWS_PATH . 'layout/main.php';
                 if (file_exists($layoutFile)) {
-                    // Рендерим layout с контентом
                     $layoutData = array_merge($data, ['content' => $content]);
                     $finalContent = $renderer->render('layout/main', $layoutData);
                 } else {
@@ -103,16 +106,35 @@
         }
 
         public function send() {
-            // Устанавливаем статус код
             http_response_code($this->statusCode);
 
-            // Устанавливаем заголовки
+            // Add security headers to all responses
+            $this->headers['X-Frame-Options'] = 'DENY';
+            $this->headers['X-XSS-Protection'] = '1; mode=block';
+            $this->headers['X-Content-Type-Options'] = 'nosniff';
+
             foreach ($this->headers as $name => $value) {
                 header("$name: $value");
             }
 
-            // Выводим контент
             echo $this->content;
+        }
+
+        private static function addSecurityHeaders(&$headers)
+        {
+            $securityHeaders = [
+                'X-Frame-Options' => 'DENY',
+                'X-XSS-Protection' => '1; mode=block',
+                'X-Content-Type-Options' => 'nosniff',
+                'Referrer-Policy' => 'strict-origin-when-cross-origin',
+                'Strict-Transport-Security' => 'max-age=31536000; includeSubDomains',
+            ];
+
+            foreach ($securityHeaders as $key => $value) {
+                if (!isset($headers[$key])) {
+                    $headers[$key] = $value;
+                }
+            }
         }
 
         public static function jsRedirect($url, $message = null, $delay = 0)

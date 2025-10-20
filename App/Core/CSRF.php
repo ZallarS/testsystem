@@ -20,29 +20,38 @@ class CSRF
         $sessionId = session_id();
         $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
 
+        // Use app secret from configuration
+        $secret = self::getAppSecret();
+
         if (empty($_SESSION['csrf_tokens'])) {
             $_SESSION['csrf_tokens'] = [];
         }
 
-        // Очищаем старые токены
         self::cleanExpiredTokens();
 
         $token = bin2hex(random_bytes(self::$tokenLength));
         $tokenId = uniqid('', true);
 
-        $_SESSION['csrf_tokens'][$tokenId] = [
+        // Create signed token
+        $tokenData = [
             'token' => $token,
             'created_at' => time(),
             'session_id' => $sessionId,
-            'user_agent' => substr(md5($userAgent), 0, 8)
+            'user_agent' => substr(hash_hmac('sha256', $userAgent, $secret), 0, 16)
         ];
 
-        // Ограничиваем количество токенов
+        // Sign the token
+        $signature = hash_hmac('sha256', json_encode($tokenData), $secret);
+        $tokenData['signature'] = $signature;
+
+        $_SESSION['csrf_tokens'][$tokenId] = $tokenData;
+
         if (count($_SESSION['csrf_tokens']) > 10) {
             array_shift($_SESSION['csrf_tokens']);
         }
 
-        return $token;
+        // Return signed token
+        return $token . '.' . $signature;
     }
 
     private static function storeToken($tokenId, $tokenData)
@@ -66,17 +75,14 @@ class CSRF
             throw new \Exception("Empty or invalid CSRF token");
         }
 
-        // Проверяем фортокен (разделенный токен)
-        if (strpos($token, '.') !== false) {
-            list($tokenValue, $tokenHmac) = explode('.', $token);
-
-            $expectedHmac = hash_hmac('sha256', $tokenValue, $secretKey ?? self::getAppSecret());
-            if (!hash_equals($expectedHmac, $tokenHmac)) {
-                throw new \Exception("CSRF token integrity check failed");
-            }
-
-            $token = $tokenValue;
+        // Verify token signature
+        $parts = explode('.', $token);
+        if (count($parts) !== 2) {
+            throw new \Exception("Invalid token format");
         }
+
+        list($tokenValue, $tokenSignature) = $parts;
+        $secret = self::getAppSecret();
 
         if (empty($_SESSION['csrf_tokens'])) {
             throw new \Exception("No CSRF tokens in session");
@@ -87,30 +93,42 @@ class CSRF
         $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
 
         foreach ($_SESSION['csrf_tokens'] as $tokenId => $tokenData) {
-            if (!isset($tokenData['token'], $tokenData['created_at'])) {
+            if (!isset($tokenData['token'], $tokenData['created_at'], $tokenData['signature'])) {
                 unset($_SESSION['csrf_tokens'][$tokenId]);
                 continue;
             }
 
-            // Проверяем срок жизни
+            // Verify signature
+            $expectedSignature = hash_hmac('sha256', json_encode([
+                'token' => $tokenData['token'],
+                'created_at' => $tokenData['created_at'],
+                'session_id' => $tokenData['session_id'],
+                'user_agent' => $tokenData['user_agent']
+            ]), $secret);
+
+            if (!hash_equals($tokenData['signature'], $expectedSignature)) {
+                unset($_SESSION['csrf_tokens'][$tokenId]);
+                continue;
+            }
+
+            // Check expiration
             if (($currentTime - $tokenData['created_at']) > self::$tokenLifetime) {
                 unset($_SESSION['csrf_tokens'][$tokenId]);
                 continue;
             }
 
-            // Проверяем сессию и user-agent
+            // Verify session and user-agent
             if ($tokenData['session_id'] !== $sessionId) {
                 continue;
             }
 
-            $currentUserAgentHash = substr(md5($userAgent), 0, 8);
+            $currentUserAgentHash = substr(hash_hmac('sha256', $userAgent, $secret), 0, 16);
             if ($tokenData['user_agent'] !== $currentUserAgentHash) {
                 continue;
             }
 
-            // Сравниваем токены
-            if (hash_equals($tokenData['token'], $token)) {
-                // Удаляем использованный токен
+            // Compare tokens
+            if (hash_equals($tokenData['token'], $tokenValue)) {
                 unset($_SESSION['csrf_tokens'][$tokenId]);
                 return true;
             }
@@ -142,5 +160,14 @@ class CSRF
     public static function getHeader()
     {
         return self::generateToken();
+    }
+
+    private static function getAppSecret()
+    {
+        $secret = $_ENV['APP_SECRET'] ?? null;
+        if (!$secret || $secret === 'your-secret-key-change-this-in-production') {
+            throw new \RuntimeException('APP_SECRET is not properly configured');
+        }
+        return $secret;
     }
 }

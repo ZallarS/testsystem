@@ -163,5 +163,54 @@
             }
         }
 
+        private function validateEnvironment()
+        {
+            $requiredEnvVars = [
+                'APP_SECRET',
+                'DB_HOST',
+                'DB_DATABASE',
+                'DB_USERNAME',
+                'DB_PASSWORD'
+            ];
+
+            $missing = [];
+            foreach ($requiredEnvVars as $var) {
+                if (empty($_ENV[$var])) {
+                    $missing[] = $var;
+                }
+            }
+
+            if (!empty($missing)) {
+                throw new \RuntimeException(
+                    'Missing required environment variables: ' . implode(', ', $missing)
+                );
+            }
+
+            // Validate APP_SECENT is not default
+            if ($_ENV['APP_SECRET'] === 'your-secret-key-change-this-in-production') {
+                throw new \RuntimeException('Please change APP_SECRET from default value');
+            }
+
+            // Security checks for production
+            if ($_ENV['APP_ENV'] === 'production') {
+                if ($_ENV['APP_DEBUG'] === 'true') {
+                    throw new \RuntimeException('Debug mode should be disabled in production');
+                }
+
+                if (!self::isSecure()) {
+                    // Log warning but don't throw exception
+                    error_log('SECURITY WARNING: Not using HTTPS in production');
+                }
+            }
+        }
+
+        private static function isSecure()
+        {
+            return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
+                (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') ||
+                (!empty($_SERVER['HTTP_X_FORWARDED_SSL']) && $_SERVER['HTTP_X_FORWARDED_SSL'] === 'on') ||
+                (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443);
+        }
+
 
     }

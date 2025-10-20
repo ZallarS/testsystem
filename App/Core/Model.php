@@ -34,6 +34,11 @@
                 throw new \InvalidArgumentException('ID must be numeric or string');
             }
 
+            // Validate ID format
+            if (is_string($id) && !preg_match('/^[a-zA-Z0-9_-]+$/', $id)) {
+                throw new \InvalidArgumentException('Invalid ID format');
+            }
+
             $sql = "SELECT * FROM `{$this->table}` WHERE `{$this->primaryKey}` = :id";
             $stmt = $this->db->prepare($sql);
             $stmt->bindValue(':id', $id, is_numeric($id) ? PDO::PARAM_INT : PDO::PARAM_STR);
@@ -86,8 +91,13 @@
 
         public function create(array $data)
         {
-            // Фильтруем данные по whitelist
+            // Enhanced data filtering
             $filteredData = $this->filterData($data);
+
+            // Validate required fields
+            if (empty($filteredData)) {
+                throw new \InvalidArgumentException('No valid data provided for creation');
+            }
 
             $columns = implode(', ', array_map(function($col) {
                 return "`{$col}`";
@@ -99,7 +109,13 @@
             $stmt = $this->db->prepare($sql);
 
             foreach ($filteredData as $key => $value) {
-                $stmt->bindValue(":{$key}", $value);
+                // Type-based binding
+                $type = PDO::PARAM_STR;
+                if (is_int($value)) $type = PDO::PARAM_INT;
+                if (is_bool($value)) $type = PDO::PARAM_BOOL;
+                if (is_null($value)) $type = PDO::PARAM_NULL;
+
+                $stmt->bindValue(":{$key}", $value, $type);
             }
 
             return $stmt->execute();
@@ -114,13 +130,18 @@
                     continue;
                 }
 
-                // Проверяем whitelist/blacklist
+                // Check whitelist/blacklist
                 if (!empty($this->fillable) && !in_array($key, $this->fillable)) {
                     continue;
                 }
 
                 if (in_array($key, $this->guarded)) {
                     continue;
+                }
+
+                // Sanitize values based on type
+                if (is_string($value)) {
+                    $value = \App\Core\Validator::sanitizeInput($value, 'sql');
                 }
 
                 $filtered[$key] = $value;
@@ -133,6 +154,11 @@
         public function query($sql, $params = [])
         {
             try {
+                // Validate SQL structure for dangerous operations
+                if (!$this->isSafeQuery($sql)) {
+                    throw new \Exception('Potentially dangerous query detected');
+                }
+
                 $stmt = $this->db->prepare($sql);
 
                 foreach ($params as $key => $value) {
@@ -181,6 +207,27 @@
                 }
             }
             return false;
+        }
+
+        private function isSafeQuery($sql)
+        {
+            $dangerousPatterns = [
+                '/\bDROP\b/i',
+                '/\bDELETE\s+FROM\b/i',
+                '/\bUPDATE\s+\w+\s+SET\b/i',
+                '/\bINSERT\s+INTO\b/i',
+                '/\bALTER\s+TABLE\b/i',
+                '/\bCREATE\s+TABLE\b/i',
+                '/\bTRUNCATE\b/i'
+            ];
+
+            foreach ($dangerousPatterns as $pattern) {
+                if (preg_match($pattern, $sql)) {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         public function whereSafe($conditions, $params = [], $operator = 'AND')

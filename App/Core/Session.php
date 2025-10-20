@@ -24,18 +24,20 @@
                 return;
             }
 
-            // Если сессия уже активна с другим именем, закрываем её
+            // Security headers
+            header('X-Content-Type-Options: nosniff');
+            header('X-Frame-Options: DENY');
+            header('X-XSS-Protection: 1; mode=block');
+
             if (session_status() === PHP_SESSION_ACTIVE) {
                 if (session_name() !== 'TESTSYSTEM_SID') {
                     session_write_close();
                 } else {
-                    // Уже активна с нашим именем
                     self::initializeSessionData();
                     return;
                 }
             }
 
-            // Настраиваем и запускаем сессию
             session_name('TESTSYSTEM_SID');
 
             $cookieParams = [
@@ -44,20 +46,22 @@
                 'domain' => self::getDomain(),
                 'secure' => self::isSecure(),
                 'httponly' => true,
-                'samesite' => 'Lax'
+                'samesite' => 'Strict' // Changed from Lax to Strict
             ];
 
             session_set_cookie_params($cookieParams);
 
-            // Дополнительные настройки безопасности
+            // Enhanced security settings
             ini_set('session.use_strict_mode', '1');
             ini_set('session.use_only_cookies', '1');
             ini_set('session.cookie_httponly', '1');
             ini_set('session.cookie_secure', self::isSecure() ? '1' : '0');
             ini_set('session.use_trans_sid', '0');
-            ini_set('session.cookie_samesite', 'Lax');
+            ini_set('session.cookie_samesite', 'Strict');
             ini_set('session.gc_maxlifetime', 3600);
+            ini_set('session.cookie_lifetime', 86400);
 
+            // Prevent session fixation
             if (!session_start()) {
                 throw new \RuntimeException('Failed to start session');
             }
@@ -68,8 +72,7 @@
 
         private static function initializeSessionData()
         {
-            // Защита от session fixation
-            if (empty($_SESSION['created'])) {
+            if (empty($_SESSION['created']) || empty($_SESSION['regenerated_at'])) {
                 session_regenerate_id(true);
                 $_SESSION['created'] = time();
                 $_SESSION['user_agent'] = $_SERVER['HTTP_USER_AGENT'] ?? '';
@@ -81,21 +84,36 @@
         private static function validateSession()
         {
             if (!isset($_SESSION['user_agent']) || !isset($_SESSION['ip_hash'])) {
+                self::regenerate(true);
                 return;
             }
 
             $currentUserAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
             $currentIpHash = self::hashIp($_SERVER['REMOTE_ADDR'] ?? '');
 
+            // Enhanced validation
             if ($_SESSION['user_agent'] !== $currentUserAgent) {
                 self::destroy();
                 throw new \RuntimeException('Session user agent mismatch');
             }
 
-            // Регенерация сессии каждые 15 минут
+            // IP change tolerance (subnet change allowed)
+            $currentIpParts = explode('.', $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
+            $storedIpParts = explode('.', $_SESSION['ip_hash'] ?? '0.0.0.0');
+
+            if (count($currentIpParts) >= 3 && count($storedIpParts) >= 3) {
+                $currentSubnet = $currentIpParts[0] . '.' . $currentIpParts[1] . '.' . $currentIpParts[2];
+                $storedSubnet = $storedIpParts[0] . '.' . $storedIpParts[1] . '.' . $storedIpParts[2];
+
+                if ($currentSubnet !== $storedSubnet) {
+                    self::destroy();
+                    throw new \RuntimeException('Session IP subnet mismatch');
+                }
+            }
+
+            // Regenerate session ID every 15 minutes
             if (time() - ($_SESSION['regenerated_at'] ?? 0) > 900) {
-                session_regenerate_id(true);
-                $_SESSION['regenerated_at'] = time();
+                self::regenerate(true);
             }
         }
 
@@ -256,6 +274,7 @@
             if (!self::$cliMode && session_status() === PHP_SESSION_ACTIVE) {
                 session_regenerate_id($deleteOld);
                 $_SESSION['regenerated_at'] = time();
+                $_SESSION['ip_hash'] = self::hashIp($_SERVER['REMOTE_ADDR'] ?? '');
             }
         }
     }
