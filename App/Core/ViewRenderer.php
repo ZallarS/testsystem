@@ -90,14 +90,51 @@
         public function safeHtml($html, $allowedTags = null)
         {
             if ($allowedTags === null) {
-                $allowedTags = '<p><br><strong><em><u><ul><ol><li><a><code><pre><span><div><h1><h2><h3><h4><h5><h6>';
+                // Белый список безопасных тегов
+                $allowedTags = '<p><br><strong><em><u><ul><ol><li><a><code><pre><span>';
             }
 
-            // Удаляем опасные атрибуты
+            // Удаляем все опасные атрибуты
             $html = preg_replace('/\s+on\w+\s*=\s*[\'"]?[^\'"]*[\'"]?/i', '', $html);
             $html = preg_replace('/\s+style\s*=\s*[\'"]?[^\'"]*[\'"]?/i', '', $html);
-            $html = preg_replace('/\s+href\s*=\s*[\'"]?javascript:[^\'"]*[\'"]?/i', '', $html);
+            $html = preg_replace('/\s+href\s*=\s*[\'"]?\s*javascript:[^\'"]*[\'"]?/i', '', $html);
+            $html = preg_replace('/\s+src\s*=\s*[\'"]?\s*javascript:[^\'"]*[\'"]?/i', '', $html);
 
-            return strip_tags($html, $allowedTags);
+            // Удаляем все теги кроме разрешенных
+            $html = strip_tags($html, $allowedTags);
+
+            // Дополнительная очистка для оставшихся тегов
+            $html = $this->cleanAttributes($html);
+
+            return $html;
+        }
+        private function cleanAttributes($html)
+        {
+            return preg_replace_callback('/<(\w+)([^>]*)>/i', function($matches) {
+                $tag = $matches[1];
+                $attributes = $matches[2];
+
+                // Разрешаем только безопасные атрибуты для каждого тега
+                $safeAttributes = [
+                    'a' => ['href', 'title', 'target'],
+                    'img' => ['src', 'alt', 'title'],
+                    // ... другие теги
+                ];
+
+                $allowed = $safeAttributes[strtolower($tag)] ?? [];
+
+                // Оставляем только разрешенные атрибуты
+                if (preg_match_all('/(\w+)\s*=\s*["\']([^"\']*)["\']/', $attributes, $attrMatches)) {
+                    $cleanAttributes = '';
+                    foreach ($attrMatches[1] as $index => $attrName) {
+                        if (in_array(strtolower($attrName), $allowed)) {
+                            $cleanAttributes .= " {$attrName}=\"{$attrMatches[2][$index]}\"";
+                        }
+                    }
+                    return "<{$tag}{$cleanAttributes}>";
+                }
+
+                return "<{$tag}>";
+            }, $html);
         }
     }

@@ -166,20 +166,11 @@
         public function query($sql, $params = [])
         {
             try {
-                // Validate SQL structure for dangerous operations
-                if (!$this->isSafeQuery($sql)) {
-                    throw new \Exception('Potentially dangerous query detected');
-                }
-
                 $stmt = $this->db->prepare($sql);
 
                 foreach ($params as $key => $value) {
-                    $type = is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR;
-                    if (is_int($key)) {
-                        $stmt->bindValue($key + 1, $value, $type);
-                    } else {
-                        $stmt->bindValue($key, $value, $type);
-                    }
+                    $type = $this->getPdoType($value);
+                    $stmt->bindValue(is_int($key) ? $key + 1 : $key, $value, $type);
                 }
 
                 $stmt->execute();
@@ -190,21 +181,24 @@
             }
         }
 
+        private function getPdoType($value)
+        {
+            if (is_int($value)) return \PDO::PARAM_INT;
+            if (is_bool($value)) return \PDO::PARAM_BOOL;
+            if (is_null($value)) return \PDO::PARAM_NULL;
+            return \PDO::PARAM_STR;
+        }
+
         public function rawQuery($sql, $allowedPatterns = [])
         {
-            // Проверяем запрос на наличие опасных операций
+            // Запрещаем все опасные операции
             $dangerousPatterns = [
-                '/\bDROP\b/i',
-                '/\bDELETE\b/i',
-                '/\bUPDATE\b/i',
-                '/\bINSERT\b/i',
-                '/\bALTER\b/i',
-                '/\bCREATE\b/i'
+                '/\b(DROP|DELETE|UPDATE|INSERT|ALTER|CREATE|TRUNCATE)\b/i'
             ];
 
             foreach ($dangerousPatterns as $pattern) {
-                if (preg_match($pattern, $sql) && !$this->isQueryAllowed($sql, $allowedPatterns)) {
-                    throw new \InvalidArgumentException("Potentially dangerous query detected");
+                if (preg_match($pattern, $sql)) {
+                    throw new \InvalidArgumentException("Dangerous SQL operation detected");
                 }
             }
 

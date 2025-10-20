@@ -196,18 +196,16 @@
          */
         private function hashPassword($password)
         {
-            // Проверяем длину пароля
             if (strlen($password) < 8) {
                 throw new \InvalidArgumentException("Password must be at least 8 characters long");
             }
 
+            // Используем bcrypt с хорошей стоимостью
             $options = [
-                'memory_cost' => 2048, // 2MB памяти
-                'time_cost'   => 4,    // 4 итерации
-                'threads'     => 3     // 3 потока
+                'cost' => 12
             ];
 
-            $hash = password_hash($password, PASSWORD_ARGON2ID, $options);
+            $hash = password_hash($password, PASSWORD_BCRYPT, $options);
 
             if ($hash === false) {
                 throw new \RuntimeException("Password hashing failed");
@@ -221,7 +219,15 @@
          */
         public function verifyPassword($password, $hash)
         {
-            return password_verify($password, $hash);
+            // Защита от timing-атак
+            $result = password_verify($password, $hash);
+
+            // Если пароль верный, проверяем необходимость рехэширования
+            if ($result && password_needs_rehash($hash, PASSWORD_BCRYPT, ['cost' => 12])) {
+                // Здесь можно обновить хэш в базе данных
+            }
+
+            return $result;
         }
 
         /**

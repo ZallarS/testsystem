@@ -91,30 +91,39 @@
             $currentUserAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
             $currentIpHash = self::hashIp($_SERVER['REMOTE_ADDR'] ?? '');
 
-            // Enhanced validation
-            if ($_SESSION['user_agent'] !== $currentUserAgent) {
+            // Строгая проверка User-Agent
+            if (!hash_equals($_SESSION['user_agent'], $currentUserAgent)) {
                 self::destroy();
                 throw new \RuntimeException('Session user agent mismatch');
             }
 
-            // IP change tolerance (subnet change allowed)
-            $currentIpParts = explode('.', $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
-            $storedIpParts = explode('.', $_SESSION['ip_hash'] ?? '0.0.0.0');
-
-            if (count($currentIpParts) >= 3 && count($storedIpParts) >= 3) {
-                $currentSubnet = $currentIpParts[0] . '.' . $currentIpParts[1] . '.' . $currentIpParts[2];
-                $storedSubnet = $storedIpParts[0] . '.' . $storedIpParts[1] . '.' . $storedIpParts[2];
-
-                if ($currentSubnet !== $storedSubnet) {
-                    self::destroy();
-                    throw new \RuntimeException('Session IP subnet mismatch');
-                }
+            // Усиленная проверка IP с возможностью настройки строгости
+            if (!self::validateIp($_SESSION['ip_hash'], $currentIpHash)) {
+                self::destroy();
+                throw new \RuntimeException('Session IP validation failed');
             }
 
-            // Regenerate session ID every 15 minutes
-            if (time() - ($_SESSION['regenerated_at'] ?? 0) > 900) {
+            // Частая регенерация session ID
+            if (time() - ($_SESSION['regenerated_at'] ?? 0) > 300) { // 5 минут вместо 15
                 self::regenerate(true);
             }
+        }
+
+        private static function validateIp($storedIpHash, $currentIpHash)
+        {
+            // В production - строгая проверка полного IP
+            if (($_ENV['APP_ENV'] ?? 'production') === 'production') {
+                return hash_equals($storedIpHash, $currentIpHash);
+            }
+
+            // В development - проверка по подсети для удобства
+            $storedParts = explode('.', $storedIpHash);
+            $currentParts = explode('.', $currentIpHash);
+
+            return count($storedParts) >= 3 && count($currentParts) >= 3 &&
+                $storedParts[0] === $currentParts[0] &&
+                $storedParts[1] === $currentParts[1] &&
+                $storedParts[2] === $currentParts[2];
         }
 
         // ДОБАВЛЯЕМ метод для безопасного получения всех данных сессии
@@ -281,11 +290,21 @@
         public static function regenerateOnAuthChange()
         {
             if (!self::$cliMode && session_status() === PHP_SESSION_ACTIVE) {
+                // Создаем новый идентификатор сессии
+                session_regenerate_id(true);
+
+                // Переносим данные в новую сессию
                 $oldSessionData = $_SESSION;
+                $_SESSION = [];
                 session_regenerate_id(true);
                 $_SESSION = $oldSessionData;
+
                 $_SESSION['regenerated_at'] = time();
                 $_SESSION['auth_level'] = self::calculateAuthLevel();
+
+                // Обновляем метаданные безопасности
+                $_SESSION['user_agent'] = $_SERVER['HTTP_USER_AGENT'] ?? '';
+                $_SESSION['ip_hash'] = self::hashIp($_SERVER['REMOTE_ADDR'] ?? '');
             }
         }
 

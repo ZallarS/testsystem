@@ -17,41 +17,31 @@ class CSRF
 
     public static function generateToken()
     {
-        $sessionId = session_id();
-        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        if (empty($_SESSION['csrf_secret'])) {
+            $_SESSION['csrf_secret'] = bin2hex(random_bytes(32));
+        }
 
-        // Use app secret from configuration
-        $secret = self::getAppSecret();
+        $token = bin2hex(random_bytes(32));
+        $expires = time() + 3600; // 1 час
 
-        if (empty($_SESSION['csrf_tokens'])) {
+        if (!isset($_SESSION['csrf_tokens'])) {
             $_SESSION['csrf_tokens'] = [];
         }
 
-        self::cleanExpiredTokens();
-
-        $token = bin2hex(random_bytes(self::$tokenLength));
-        $tokenId = uniqid('', true);
-
-        // Create signed token
-        $tokenData = [
-            'token' => $token,
-            'created_at' => time(),
-            'session_id' => $sessionId,
-            'user_agent' => substr(hash_hmac('sha256', $userAgent, $secret), 0, 16)
-        ];
-
-        // Sign the token
-        $signature = hash_hmac('sha256', json_encode($tokenData), $secret);
-        $tokenData['signature'] = $signature;
-
-        $_SESSION['csrf_tokens'][$tokenId] = $tokenData;
-
+        // Ограничиваем количество токенов
         if (count($_SESSION['csrf_tokens']) > 10) {
             array_shift($_SESSION['csrf_tokens']);
         }
 
-        // Return signed token
-        return $token . '.' . $signature;
+        $tokenData = [
+            'token' => $token,
+            'expires' => $expires,
+            'created' => time()
+        ];
+
+        $_SESSION['csrf_tokens'][$token] = $tokenData;
+
+        return $token;
     }
 
     private static function storeToken($tokenId, $tokenData)
@@ -75,66 +65,22 @@ class CSRF
             throw new \Exception("Empty or invalid CSRF token");
         }
 
-        // Verify token signature
-        $parts = explode('.', $token);
-        if (count($parts) !== 2) {
-            throw new \Exception("Invalid token format");
+        if (!isset($_SESSION['csrf_tokens'][$token])) {
+            throw new \Exception("CSRF token not found");
         }
 
-        list($tokenValue, $tokenSignature) = $parts;
-        $secret = self::getAppSecret();
+        $tokenData = $_SESSION['csrf_tokens'][$token];
 
-        if (empty($_SESSION['csrf_tokens'])) {
-            throw new \Exception("No CSRF tokens in session");
+        // Проверяем срок действия
+        if (time() > $tokenData['expires']) {
+            unset($_SESSION['csrf_tokens'][$token]);
+            throw new \Exception("CSRF token expired");
         }
 
-        $currentTime = time();
-        $sessionId = session_id();
-        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        // Удаляем использованный токен
+        unset($_SESSION['csrf_tokens'][$token]);
 
-        foreach ($_SESSION['csrf_tokens'] as $tokenId => $tokenData) {
-            if (!isset($tokenData['token'], $tokenData['created_at'], $tokenData['signature'])) {
-                unset($_SESSION['csrf_tokens'][$tokenId]);
-                continue;
-            }
-
-            // Verify signature
-            $expectedSignature = hash_hmac('sha256', json_encode([
-                'token' => $tokenData['token'],
-                'created_at' => $tokenData['created_at'],
-                'session_id' => $tokenData['session_id'],
-                'user_agent' => $tokenData['user_agent']
-            ]), $secret);
-
-            if (!hash_equals($tokenData['signature'], $expectedSignature)) {
-                unset($_SESSION['csrf_tokens'][$tokenId]);
-                continue;
-            }
-
-            // Check expiration
-            if (($currentTime - $tokenData['created_at']) > self::$tokenLifetime) {
-                unset($_SESSION['csrf_tokens'][$tokenId]);
-                continue;
-            }
-
-            // Verify session and user-agent
-            if ($tokenData['session_id'] !== $sessionId) {
-                continue;
-            }
-
-            $currentUserAgentHash = substr(hash_hmac('sha256', $userAgent, $secret), 0, 16);
-            if ($tokenData['user_agent'] !== $currentUserAgentHash) {
-                continue;
-            }
-
-            // Compare tokens
-            if (hash_equals($tokenData['token'], $tokenValue)) {
-                unset($_SESSION['csrf_tokens'][$tokenId]);
-                return true;
-            }
-        }
-
-        throw new \Exception("CSRF token not found or expired");
+        return true;
     }
 
     private static function cleanExpiredTokens()
