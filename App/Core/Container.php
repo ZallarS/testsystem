@@ -14,12 +14,39 @@
 
         private function loadConfig() {
             $configPath = BASE_PATH . '/config/';
+
+            // Проверяем существование директории config
+            if (!is_dir($configPath)) {
+                throw new \RuntimeException('Config directory not found: ' . $configPath);
+            }
+
             $configFiles = glob($configPath . '*.php');
+
+            // Разрешаем только определенные конфигурационные файлы
+            $allowedConfigs = ['app', 'database'];
 
             foreach ($configFiles as $configFile) {
                 $key = basename($configFile, '.php');
-                $this->config[$key] = require $configFile;
+
+                // Загружаем только разрешенные конфигурации
+                if (in_array($key, $allowedConfigs)) {
+                    // Проверяем, что файл находится в разрешенной директории
+                    $realConfigPath = realpath($configFile);
+                    if ($realConfigPath && strpos($realConfigPath, realpath($configPath)) === 0) {
+                        $this->config[$key] = $this->loadConfigFile($configFile);
+                    } else {
+                        throw new \RuntimeException('Invalid config file path: ' . $configFile);
+                    }
+                }
             }
+        }
+
+        private function loadConfigFile($filePath)
+        {
+            // Изолируем загрузку конфигурации
+            return (function() use ($filePath) {
+                return require $filePath;
+            })();
         }
 
         public function set($name, $value) {
@@ -108,8 +135,9 @@
             $keys = explode('.', $key);
             $value = $this->config;
 
+            // Защита от directory traversal в ключах конфигурации
             foreach ($keys as $k) {
-                if (!isset($value[$k])) {
+                if (!is_array($value) || !isset($value[$k])) {
                     return $default;
                 }
                 $value = $value[$k];

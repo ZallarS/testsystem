@@ -1,33 +1,38 @@
 <?php
 
     use App\Core\Response;
+    use App\Middleware\VerifyCsrfToken;
     use App\Middleware\RateLimitMiddleware;
 
-    // Apply rate limiting to all API routes
+    // Группа для API маршрутов с CSRF защитой
     $router->group('/api', function() use ($router) {
         $router->group('/v1', function() use ($router) {
 
-            // Public endpoints with rate limiting
+            // Public endpoints
             $router->get('/status', function() {
-                return Response::json(['status' => 'ok', 'timestamp' => time()]);
-            })->middleware([new RateLimitMiddleware(60, 60)]); // 60 requests per minute
+                return Response::json([
+                    'status' => 'ok',
+                    'timestamp' => time(),
+                    'version' => '1.0'
+                ]);
+            });
 
-            // Protected endpoints
+            // Protected endpoints require CSRF
             $router->get('/users', function() {
-                // Validate authentication
+                // Проверка аутентификации
                 if (!\App\Core\User::isLoggedIn()) {
                     return Response::json(['error' => 'Unauthorized'], 401);
                 }
 
-                // Check permissions
+                // Проверка прав
                 if (!\App\Core\User::isAdmin()) {
-                    return Response::json(['error' => 'Insufficient permissions'], 403);
+                    return Response::json(['error' => 'Forbidden'], 403);
                 }
 
                 $userModel = new \App\Models\User();
                 $users = $userModel->all();
 
-                // Sanitize output - remove sensitive data
+                // Удаляем чувствительные данные
                 $safeUsers = array_map(function($user) {
                     unset($user['password']);
                     unset($user['remember_token']);
@@ -35,7 +40,36 @@
                 }, $users);
 
                 return Response::json($safeUsers);
-            })->middleware([new RateLimitMiddleware(30, 60)]); // 30 requests per minute
+            })->middleware([new VerifyCsrfToken()]);
+
+            $router->get('/users/{id}', function($id) {
+                // Проверка аутентификации
+                if (!\App\Core\User::isLoggedIn()) {
+                    return Response::json(['error' => 'Unauthorized'], 401);
+                }
+
+                $userModel = new \App\Models\User();
+                $user = $userModel->find($id);
+
+                if (!$user) {
+                    return Response::json(['error' => 'User not found'], 404);
+                }
+
+                // Проверка прав доступа
+                $currentUser = \App\Core\User::get();
+                if (!$currentUser['is_admin'] && $currentUser['id'] != $user['id']) {
+                    return Response::json(['error' => 'Forbidden'], 403);
+                }
+
+                // Удаляем чувствительные данные
+                unset($user['password']);
+                unset($user['remember_token']);
+
+                return Response::json($user);
+            })->middleware([new VerifyCsrfToken()]);
 
         });
-    }, ['middleware' => [new \App\Middleware\SecurityHeadersMiddleware()]]);
+    }, ['middleware' => [
+        new RateLimitMiddleware(100, 3600), // 100 запросов в час
+        new \App\Middleware\SecurityHeadersMiddleware()
+    ]]);

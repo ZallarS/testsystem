@@ -24,7 +24,8 @@
             try {
                 $this->authorize('users.manage');
 
-                $users = $this->userService->getAllUsersWithRoles();
+                $userService = new UserService();
+                $users = $userService->getAllUsersWithRoles();
 
                 return $this->viewResponse('admin/users/index', [
                     'users' => $users,
@@ -38,38 +39,67 @@
 
         public function edit($id)
         {
-            $user = $this->userModel->find($id);
+            try {
+                $this->authorize('users.manage');
 
-            if (!$user) {
-                return Response::redirect('/admin/users?error=Пользователь не найден');
+                // Проверяем, что пользователь имеет доступ к этому ресурсу
+                if (!$this->canAccessUser($id)) {
+                    return Response::redirect('/admin/users?error=Доступ запрещен');
+                }
+
+                $user = $this->userModel->find($id);
+
+                if (!$user) {
+                    return Response::redirect('/admin/users?error=Пользователь не найден');
+                }
+
+                // Получаем текущие роли пользователя
+                $userModelInstance = new \App\Models\User();
+                $userModelInstance->id = $user['id'];
+                $userRoles = $userModelInstance->roles();
+
+                return $this->view('admin/users/edit', [
+                    'user' => $user,
+                    'userRoles' => $userRoles,
+                    'title' => 'Редактирование пользователя',
+                    'activeMenu' => 'users',
+                    'roles' => ['user', 'admin']
+                ]);
+
+            } catch (\Exception $e) {
+                return $this->handleException($e, 'Failed to load user edit page');
             }
-
-            // Получаем текущие роли пользователя
-            $userModelInstance = new \App\Models\User();
-            $userModelInstance->id = $user['id'];
-            $userRoles = $userModelInstance->roles();
-
-            return $this->view('admin/users/edit', [
-                'user' => $user,
-                'userRoles' => $userRoles, // Передаем массив ролей в шаблон
-                'title' => 'Редактирование пользователя',
-                'activeMenu' => 'users',
-                'roles' => ['user', 'admin'] // Доступные роли
-            ]);
         }
 
         public function delete($id)
         {
-            $user = $this->userModel->find($id);
+            try {
+                $this->authorize('users.delete');
 
-            if (!$user) {
-                return Response::redirect('/admin/users?error=Пользователь не найден');
-            }
+                // Проверяем, что пользователь имеет доступ к этому ресурсу
+                if (!$this->canAccessUser($id)) {
+                    return Response::redirect('/admin/users?error=Доступ запрещен');
+                }
 
-            if ($this->userModel->delete($id)) {
-                return Response::redirect('/admin/users?message=Пользователь успешно удален');
-            } else {
-                return Response::redirect('/admin/users?error=Ошибка при удалении пользователя');
+                $user = $this->userModel->find($id);
+
+                if (!$user) {
+                    return Response::redirect('/admin/users?error=Пользователь не найден');
+                }
+
+                // Запрещаем удаление самого себя
+                if ($user['id'] == \App\Core\User::getId()) {
+                    return Response::redirect('/admin/users?error=Нельзя удалить собственный аккаунт');
+                }
+
+                if ($this->userModel->delete($id)) {
+                    return Response::redirect('/admin/users?message=Пользователь успешно удален');
+                } else {
+                    return Response::redirect('/admin/users?error=Ошибка при удалении пользователя');
+                }
+
+            } catch (\Exception $e) {
+                return $this->handleException($e, 'Failed to delete user');
             }
         }
 
@@ -88,10 +118,17 @@
             try {
                 $this->authorize('users.create');
 
-                // Валидация
-                $validationError = $this->validateRequest($this->userValidator->getCreationRules());
-                if ($validationError) {
-                    return $validationError;
+                $userService = new UserService();
+
+                // Валидация данных
+                $validationErrors = $userService->validateUserData($_POST, false);
+                if (!empty($validationErrors)) {
+                    return $this->viewResponse('admin/users/create', [
+                        'errors' => $validationErrors,
+                        'title' => 'Добавление пользователя',
+                        'activeMenu' => 'users',
+                        'roles' => ['user', 'admin']
+                    ]);
                 }
 
                 $userData = [
@@ -101,7 +138,7 @@
                     'roles' => $_POST['roles'] ?? ['user']
                 ];
 
-                $user = $this->userService->createUser($userData);
+                $userId = $userService->createUser($userData);
 
                 return $this->redirectResponse('/admin/users?message=Пользователь успешно создан');
 
@@ -140,13 +177,12 @@
             try {
                 $this->authorize('users.update');
 
-                if (!$this->userValidator->validateUserId($id)) {
-                    return $this->redirectResponse('/admin/users?error=Неверный ID пользователя');
-                }
+                $userService = new UserService();
 
-                $validationError = $this->validateRequest($this->userValidator->getUpdateRules());
-                if ($validationError) {
-                    return $validationError;
+                // Валидация данных
+                $validationErrors = $userService->validateUserData($_POST, true);
+                if (!empty($validationErrors)) {
+                    return $this->redirectResponse("/admin/users/edit/{$id}?error=" . urlencode(implode(', ', $validationErrors)));
                 }
 
                 $userData = [
@@ -159,13 +195,26 @@
                     $userData['password'] = $_POST['password'];
                 }
 
-                $this->userService->updateUser($id, $userData);
+                $userService->updateUser($id, $userData);
 
                 return $this->redirectResponse('/admin/users?message=Пользователь успешно обновлен');
 
             } catch (\Exception $e) {
                 return $this->handleException($e, 'Failed to update user');
             }
+        }
+
+        private function canAccessUser($userId)
+        {
+            $currentUser = \App\Core\User::get();
+
+            // Администраторы имеют доступ ко всем пользователям
+            if (\App\Core\User::isAdmin()) {
+                return true;
+            }
+
+            // Обычные пользователи могут редактировать только свой профиль
+            return $currentUser['id'] == $userId;
         }
 
         private function updateUserRoles($userId, $roleNames)

@@ -277,4 +277,43 @@
                 $_SESSION['ip_hash'] = self::hashIp($_SERVER['REMOTE_ADDR'] ?? '');
             }
         }
+
+        public static function regenerateOnAuthChange()
+        {
+            if (!self::$cliMode && session_status() === PHP_SESSION_ACTIVE) {
+                $oldSessionData = $_SESSION;
+                session_regenerate_id(true);
+                $_SESSION = $oldSessionData;
+                $_SESSION['regenerated_at'] = time();
+                $_SESSION['auth_level'] = self::calculateAuthLevel();
+            }
+        }
+
+        private static function calculateAuthLevel()
+        {
+            $user = \App\Core\User::get();
+            if (!$user) {
+                return 'guest';
+            }
+
+            if (in_array('admin', $user['roles'] ?? [])) {
+                return 'admin';
+            }
+
+            return 'user';
+        }
+
+        public static function validateAuthLevel()
+        {
+            $currentLevel = self::calculateAuthLevel();
+            $storedLevel = $_SESSION['auth_level'] ?? 'guest';
+
+            if ($currentLevel !== $storedLevel) {
+                // Уровень аутентификации изменился - регенерируем сессию
+                self::regenerateOnAuthChange();
+                return false;
+            }
+
+            return true;
+        }
     }

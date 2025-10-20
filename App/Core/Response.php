@@ -22,12 +22,19 @@
             $headers['Content-Type'] = 'application/json; charset=utf-8';
             $headers['X-Content-Type-Options'] = 'nosniff';
 
-            // Security headers
+            // Добавляем security headers
             self::addSecurityHeaders($headers);
 
             $safeData = self::sanitizeJsonData($data);
 
-            return new self(json_encode($safeData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP), $statusCode, $headers);
+            // Дополнительная проверка на валидность JSON
+            $json = json_encode($safeData, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
+
+            if ($json === false) {
+                throw new \RuntimeException('Failed to encode JSON data');
+            }
+
+            return new self($json, $statusCode, $headers);
         }
 
         private static function sanitizeJsonData($data)
@@ -36,9 +43,17 @@
                 return array_map([self::class, 'sanitizeJsonData'], $data);
             }
 
+            if (is_object($data)) {
+                $result = [];
+                foreach ($data as $key => $value) {
+                    $result[$key] = self::sanitizeJsonData($value);
+                }
+                return $result;
+            }
+
             if (is_string($data)) {
-                // Экранируем для безопасного встраивания в JavaScript
-                return htmlspecialchars($data, ENT_NOQUOTES, 'UTF-8');
+                // Экранируем для безопасного JSON с учетом JavaScript контекста
+                return htmlspecialchars($data, ENT_QUOTES | ENT_HTML5, 'UTF-8');
             }
 
             return $data;

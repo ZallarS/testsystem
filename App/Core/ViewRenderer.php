@@ -14,8 +14,11 @@
                 throw new \Exception("View file not found: " . $viewFile);
             }
 
-            // Извлекаем данные
-            extract($data, EXTR_SKIP);
+            // Фильтруем ключи данных для предотвращения injection
+            $safeData = $this->filterViewData($data);
+
+            // Извлекаем данные безопасно
+            extract($safeData, EXTR_SKIP);
 
             // Начинаем буферизацию
             ob_start();
@@ -25,6 +28,28 @@
 
             // Получаем содержимое буфера
             return ob_get_clean();
+        }
+
+        private function filterViewData($data)
+        {
+            $safeData = [];
+            $reservedVars = ['GLOBALS', '_SERVER', '_GET', '_POST', '_FILES', '_COOKIE', '_SESSION', '_REQUEST', '_ENV', 'this'];
+
+            foreach ($data as $key => $value) {
+                // Проверяем, что ключ не является зарезервированным именем
+                if (in_array(strtoupper($key), $reservedVars)) {
+                    throw new \InvalidArgumentException("Reserved variable name used in view data: {$key}");
+                }
+
+                // Разрешаем только алфавитно-цифровые символы и подчеркивания
+                if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $key)) {
+                    throw new \InvalidArgumentException("Invalid variable name in view data: {$key}");
+                }
+
+                $safeData[$key] = $value;
+            }
+
+            return $safeData;
         }
 
         private function escapeData($data)

@@ -57,16 +57,26 @@
                     throw new \InvalidArgumentException("Invalid column name: {$key}");
                 }
 
+                // Дополнительная проверка для qualified names (table.column)
+                if (strpos($key, '.') !== false) {
+                    $parts = explode('.', $key);
+                    foreach ($parts as $part) {
+                        if (!$this->isValidColumnName($part)) {
+                            throw new \InvalidArgumentException("Invalid qualified column name: {$key}");
+                        }
+                    }
+                }
+
                 if (is_array($value)) {
                     $placeholders = [];
                     foreach ($value as $index => $val) {
-                        $paramName = ":" . str_replace('.', '_', $key) . "_{$index}";
+                        $paramName = ":" . str_replace(['.', '-'], '_', $key) . "_{$index}";
                         $placeholders[] = $paramName;
                         $bindings[$paramName] = $val;
                     }
                     $whereClause[] = "`{$key}` IN (" . implode(', ', $placeholders) . ")";
                 } else {
-                    $paramName = ":" . str_replace('.', '_', $key);
+                    $paramName = ":" . str_replace(['.', '-'], '_', $key);
                     $whereClause[] = "`{$key}` = {$paramName}";
                     $bindings[$paramName] = $value;
                 }
@@ -86,7 +96,9 @@
 
         protected function isValidColumnName($column)
         {
-            return preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $column);
+            // Разрешаем только буквы, цифры, подчеркивания и точки (для qualified names)
+            return preg_match('/^[a-zA-Z_][a-zA-Z0-9_.]*$/', $column) &&
+                substr_count($column, '.') <= 1; // Максимум одна точка для table.column
         }
 
         public function create(array $data)

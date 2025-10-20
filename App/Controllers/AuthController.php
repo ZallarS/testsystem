@@ -44,20 +44,19 @@
 
         public function processLogin()
         {
-
             error_log("Process login started. Session ID: " . (\App\Core\Session::id() ?? 'none'));
 
             $email = $_POST['email'] ?? '';
             $password = $_POST['password'] ?? '';
 
             error_log("Login attempt for email: $email");
-            error_log("Password length: " . strlen($password));
 
             // Валидация
             $errors = $this->validateLogin($email, $password);
 
             if (!empty($errors)) {
                 error_log("Validation errors: " . implode(', ', $errors));
+                $this->simulatePasswordVerification(); // Защита от timing-атак
                 return $this->view('auth/login', [
                     'error' => 'Please fix the errors below',
                     'errors' => $errors,
@@ -66,10 +65,12 @@
                 ]);
             }
 
-            // Поиск пользователя в базе данных
-            $user = $this->userModel->findByEmail($email);
+            // Используем UserService для поиска пользователя
+            $userService = new \App\Services\UserService();
+            $user = $userService->findUserByEmail($email);
 
             if (!$user) {
+                $this->simulatePasswordVerification(); // Защита от timing-атак
                 error_log("User not found for email: $email");
                 return $this->view('auth/login', [
                     'error' => 'Invalid email or password',
@@ -78,13 +79,8 @@
                 ]);
             }
 
-            error_log("User found: " . $user['id']);
-            error_log("Stored password hash: " . $user['password']);
-            error_log("Stored password hash length: " . strlen($user['password']));
-
-            // Проверяем пароль
-            $passwordValid = password_verify($password, $user['password']);
-            error_log("Password verification result: " . ($passwordValid ? 'true' : 'false'));
+            // Проверяем пароль с использованием UserService
+            $passwordValid = $userService->verifyPassword($password, $user['password']);
 
             if (!$passwordValid) {
                 error_log("Invalid credentials for email: $email");
@@ -95,50 +91,58 @@
                 ]);
             }
 
-            if (!$user || !$passwordValid) {
-                error_log("Invalid credentials for email: $email");
+            // Получаем пользователя с ролями через UserService
+            $userWithRoles = $userService->getUserWithRoles($user['id']);
+
+            if (!$userWithRoles) {
+                error_log("Failed to load user roles for: $email");
                 return $this->view('auth/login', [
-                    'error' => 'Invalid email or password',
+                    'error' => 'Authentication error',
                     'email' => $email,
                     'title' => 'Login - My Application'
                 ]);
             }
 
-            error_log("User found: " . $user['id']);
-
-            // Загружаем роли пользователя
-            $userModelInstance = new \App\Models\User();
-            $userModelInstance->id = $user['id'];
-            $roles = $userModelInstance->roles();
-
-            error_log("User roles: " . implode(', ', $roles));
+            error_log("User roles: " . implode(', ', $userWithRoles['roles']));
 
             // Успешный вход
             User::login([
-                'id' => $user['id'],
-                'email' => $user['email'],
-                'name' => $user['name'],
-                'roles' => $roles
+                'id' => $userWithRoles['id'],
+                'email' => $userWithRoles['email'],
+                'name' => $userWithRoles['name'],
+                'roles' => $userWithRoles['roles']
             ]);
 
-            // Проверяем, сохранились ли данные в сессии
-            $loggedInUser = User::get();
-            if ($loggedInUser && $loggedInUser['id'] == $user['id']) {
-                error_log("SUCCESS: User data verified in session");
-            } else {
-                error_log("ERROR: User data not found in session after login");
-                error_log("Session content: " . print_r($_SESSION, true));
-            }
+            return $this->view('auth/login_success', [
+                'title' => 'Login Successful - My Application'
+            ]);
+        }
 
-            // Для HTTP-режима используем промежуточную страницу
-            if (php_sapi_name() !== 'cli') {
-                error_log("Redirecting to login success page");
-                return $this->view('auth/login_success', [
-                    'title' => 'Login Successful - My Application'
-                ]);
-            }
+        private function findUserSafely($email)
+        {
+            // Используем случайную задержку для дополнительной защиты
+            $randomDelay = random_int(100000, 500000); // 100-500ms в микросекундах
+            usleep($randomDelay);
 
-            return Response::redirect('/');
+            return $this->userModel->findByEmail($email);
+        }
+
+        private function verifyPasswordConstantTime($password, $hash)
+        {
+            // Используем hash_equals для постоянного времени сравнения
+            $userService = new \App\Services\UserService();
+            return $userService->verifyPassword($password, $hash);
+        }
+
+        private function simulatePasswordVerification()
+        {
+            // Симулируем проверку пароля для выравнивания времени ответа
+            $dummyHash = '$2y$10$abcdefghijklmnopqrstuvABCDEFGHIJKLMNOPQRSTUVWXYZ123456';
+            password_verify('dummy_password', $dummyHash);
+
+            // Случайная задержка
+            $randomDelay = random_int(100000, 500000);
+            usleep($randomDelay);
         }
 
         public function processRegister()

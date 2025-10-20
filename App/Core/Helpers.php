@@ -11,6 +11,23 @@
 
         public static function copyDirectory($source, $destination)
         {
+            if (!is_dir($source)) {
+                throw new \InvalidArgumentException('Source is not a directory');
+            }
+
+            // Нормализуем пути
+            $source = realpath($source);
+            if ($source === false) {
+                throw new \InvalidArgumentException('Source directory does not exist');
+            }
+
+            $destination = rtrim($destination, DIRECTORY_SEPARATOR);
+
+            // Проверяем, что пути безопасны
+            if (!self::isSafePath($source) || !self::isSafePath($destination)) {
+                throw new \InvalidArgumentException('Invalid path provided');
+            }
+
             if (!is_dir($destination)) {
                 mkdir($destination, 0755, true);
             }
@@ -22,6 +39,11 @@
 
             foreach ($files as $file) {
                 $target = $destination . DIRECTORY_SEPARATOR . $files->getSubPathName();
+
+                // Проверяем на path traversal
+                if (!self::isSafePath($target)) {
+                    throw new \InvalidArgumentException('Path traversal attempt detected');
+                }
 
                 if ($file->isDir()) {
                     if (!is_dir($target)) {
@@ -50,6 +72,20 @@
             return '';
         }
 
+        private static function isSafePath($path)
+        {
+            // Запрещаем переходы на уровень выше базовой директории
+            $basePath = realpath(BASE_PATH);
+            $checkPath = realpath($path);
+
+            if ($checkPath === false) {
+                return false;
+            }
+
+            // Проверяем, что путь находится внутри базовой директории
+            return strpos($checkPath, $basePath) === 0;
+        }
+
         public static function safeHtml($html)
         {
             $renderer = new ViewRenderer();
@@ -60,6 +96,12 @@
         {
             if (!is_dir($directory)) {
                 return false;
+            }
+
+            // Нормализуем путь и проверяем безопасность
+            $directory = realpath($directory);
+            if ($directory === false || !self::isSafePath($directory)) {
+                throw new \InvalidArgumentException('Invalid directory path');
             }
 
             $files = new \RecursiveIteratorIterator(

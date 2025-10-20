@@ -12,6 +12,7 @@
         public function __construct()
         {
             self::$instance = $this;
+            $this->validateEnvironment(); // Добавляем валидацию окружения
             $this->initializeErrorHandling();
             $this->initializeContainer();
             $this->initializeRouter();
@@ -169,8 +170,7 @@
                 'APP_SECRET',
                 'DB_HOST',
                 'DB_DATABASE',
-                'DB_USERNAME',
-                'DB_PASSWORD'
+                'DB_USERNAME'
             ];
 
             $missing = [];
@@ -186,19 +186,20 @@
                 );
             }
 
-            // Validate APP_SECENT is not default
+            // Validate APP_SECRET is not default
             if ($_ENV['APP_SECRET'] === 'your-secret-key-change-this-in-production') {
-                throw new \RuntimeException('Please change APP_SECRET from default value');
+                throw new \RuntimeException('Please change APP_SECRET from default value in production');
             }
 
             // Security checks for production
-            if ($_ENV['APP_ENV'] === 'production') {
-                if ($_ENV['APP_DEBUG'] === 'true') {
-                    throw new \RuntimeException('Debug mode should be disabled in production');
+            if (($_ENV['APP_ENV'] ?? 'production') === 'production') {
+                if (($_ENV['APP_DEBUG'] ?? 'false') === 'true') {
+                    error_log('SECURITY WARNING: Debug mode enabled in production');
+                    // В production автоматически отключаем debug
+                    $_ENV['APP_DEBUG'] = 'false';
                 }
 
                 if (!self::isSecure()) {
-                    // Log warning but don't throw exception
                     error_log('SECURITY WARNING: Not using HTTPS in production');
                 }
             }

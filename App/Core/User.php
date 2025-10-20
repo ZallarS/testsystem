@@ -26,7 +26,9 @@
         public static function login($userData)
         {
             self::initSession();
-            \App\Core\Session::regenerate(); // Регенерируем сессию
+
+            // Регенерируем сессию перед установкой данных
+            \App\Core\Session::regenerate(true);
 
             $sessionUserData = [
                 'id' => $userData['id'],
@@ -34,7 +36,8 @@
                 'name' => $userData['name'],
                 'roles' => $userData['roles'],
                 'login_time' => time(),
-                'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown'
+                'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
+                'auth_level' => self::calculateAuthLevel($userData['roles'])
             ];
 
             \App\Core\Session::set('user', $sessionUserData);
@@ -45,6 +48,14 @@
             }
         }
 
+        private static function calculateAuthLevel($roles)
+        {
+            if (in_array('admin', $roles)) {
+                return 'admin';
+            }
+
+            return 'user';
+        }
 
         public static function logout()
         {
